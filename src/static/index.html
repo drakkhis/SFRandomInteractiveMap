@@ -503,6 +503,29 @@
     <span id="loading-text">Processing save file...</span>
   </div>
 
+  <!-- Empty State Card (Visible when no save or map is loaded) -->
+  <div id="empty-state-overlay" style="display: flex; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 32px 42px; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,0.8); max-width: 440px; flex-direction: column; align-items: center; pointer-events: auto;">
+    <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(243, 156, 18, 0.15); border: 1px solid rgba(243, 156, 18, 0.4); display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+        <line x1="8" y1="2" x2="8" y2="18"></line>
+        <line x1="16" y1="6" x2="16" y2="22"></line>
+      </svg>
+    </div>
+    <h3 style="font-size: 17px; font-weight: 700; color: var(--text-main); margin-bottom: 6px;">No Save Loaded</h3>
+    <p style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px;">
+      Select an existing save from the header dropdown above, click <b>Load Save</b> to browse your computer, or drag &amp; drop a <code>.sav</code> file anywhere onto this window.
+    </p>
+    <button onclick="document.getElementById('save-file-input').click()" style="background: var(--accent-orange); border: none; color: #111; font-weight: 700; font-size: 12px; padding: 9px 18px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(243, 156, 18, 0.35);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      Browse .sav File...
+    </button>
+  </div>
+
   <!-- Sidebar Filter Panel -->
   <div class="sidebar-panel" id="sidebar-panel">
     <div class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">
@@ -705,17 +728,15 @@
       zoomSnap: 0.25,
       zoomDelta: 0.5,
       attributionControl: false
-    });
+    }).setView([0, 0], -2);
 
-    // Landmass bounds:
-    // In RWG procedural worlds, default WorldSizeMeters is 12 km (±6,000m = ±600,000cm).
-    // Bounds are dynamically synchronized to the save's WorldSizeMeters (or world_bounds).
+    // Landmass bounds (Layer NOT added to map until a save is explicitly loaded)
     let currentHalfExtent = 6000;
     let activeLandmassBounds = [[-currentHalfExtent, -currentHalfExtent], [currentHalfExtent, currentHalfExtent]];
     let landmassLayer = L.imageOverlay('/static/landmass.png', activeLandmassBounds, {
       opacity: 0.85,
       interactive: false
-    }).addTo(map);
+    });
 
     // Layer groups
     const layerGroups = {
@@ -766,23 +787,87 @@
       if (el) el.style.display = 'none';
     }
 
-    async function loadWorldData() {
-      showLoading('Loading world data...');
-      try {
-        const res = await fetch('/api/world');
-        if (!res.ok) throw new Error('API returned ' + res.status);
-        worldData = await res.json();
-        renderWorld(worldData);
-        await fetchSavesList();
-      } catch (err) {
-        console.error('Failed to load world snapshot:', err);
-      } finally {
-        hideLoading();
+    function flushWorldState() {
+      // 1. Clear all entity layer groups
+      layerGroups.player.clearLayers();
+      layerGroups.somersloops.clearLayers();
+      layerGroups.mercerSpheres.clearLayers();
+      layerGroups.dropPods.clearLayers();
+      layerGroups.deposits.clearLayers();
+
+      // 2. Remove every node category group from the map
+      for (const group of Object.values(layerGroups.nodesByCategory)) {
+        group.clearLayers();
+        if (map.hasLayer(group)) {
+          map.removeLayer(group);
+        }
       }
+      layerGroups.nodesByCategory = {};
+
+      // 3. Remove the landmass map layer from the map
+      if (landmassLayer && map.hasLayer(landmassLayer)) {
+        map.removeLayer(landmassLayer);
+      }
+
+      // 4. Reset metadata in HUD
+      document.getElementById('meta-session').innerText = 'No save loaded';
+      document.getElementById('meta-seed').innerText = '-';
+      document.getElementById('meta-size').innerText = '-';
+      document.getElementById('meta-time').innerText = '-';
+      document.getElementById('meta-nodes').innerText = '0';
+      document.getElementById('meta-pods').innerText = '0';
+      document.getElementById('meta-sloops').innerText = '0';
+      document.getElementById('meta-spheres').innerText = '0';
+      document.getElementById('count-somersloops').innerText = '0';
+      document.getElementById('count-mercerspheres').innerText = '0';
+      document.getElementById('count-droppods').innerText = '0';
+      document.getElementById('count-deposits').innerText = '0';
+
+      // 5. Reset sidebar filter list
+      const listEl = document.getElementById('nodes-filter-list');
+      if (listEl) {
+        listEl.innerHTML = '<div style="padding: 18px 12px; color: var(--text-muted); font-size: 11px; text-align: center; line-height: 1.5;">No save loaded.<br>Select or upload a save to inspect resources.</div>';
+      }
+
+      // 6. Reset search input and data
+      const searchEl = document.getElementById('resource-search');
+      if (searchEl) searchEl.value = '';
+
+      worldData = null;
+      playerMarker = null;
+
+      // 7. Reset map view & invalidate size
+      map.setView([0, 0], -2);
+      map.invalidateSize();
+
+      // 8. Show empty state overlay if present
+      const emptyCard = document.getElementById('empty-state-overlay');
+      if (emptyCard) emptyCard.style.display = 'flex';
+    }
+
+    async function loadWorldData() {
+      const select = document.getElementById('save-select');
+      const currentSave = (worldData && worldData.session_name) ? select.value : '';
+      if (!currentSave) {
+        showLoading('Refreshing save list...');
+        await fetchSavesList();
+        hideLoading();
+        return;
+      }
+      await loadSpecificSave(currentSave);
     }
 
     function renderWorld(data) {
-      // Update HUD metadata
+      if (!data) return;
+
+      // 1. Flush previous state cleanly before rendering new save
+      flushWorldState();
+
+      // 2. Hide the empty state overlay
+      const emptyCard = document.getElementById('empty-state-overlay');
+      if (emptyCard) emptyCard.style.display = 'none';
+
+      // 3. Update HUD metadata
       document.getElementById('meta-session').innerText = data.session_name || '-';
       document.getElementById('meta-seed').innerText = data.world_seed !== null ? data.world_seed : 'Vanilla/None';
       document.getElementById('meta-time').innerText = Math.round(data.play_duration_seconds / 60) + 'm';
@@ -797,24 +882,6 @@
       document.getElementById('meta-spheres').innerText = spheresCount;
       document.getElementById('count-somersloops').innerText = sloopsCount;
       document.getElementById('count-mercerspheres').innerText = spheresCount;
-
-      // Clear existing layers
-      layerGroups.player.clearLayers();
-      layerGroups.somersloops.clearLayers();
-      layerGroups.mercerSpheres.clearLayers();
-      layerGroups.dropPods.clearLayers();
-      layerGroups.deposits.clearLayers();
-      for (const group of Object.values(layerGroups.nodesByCategory)) {
-        group.clearLayers();
-        if (map.hasLayer(group)) {
-          map.removeLayer(group);
-        }
-      }
-      layerGroups.nodesByCategory = {};
-
-      if (landmassLayer && map.hasLayer(landmassLayer)) {
-        landmassLayer.bringToBack();
-      }
 
       // 1. Render Player
       if (data.player && data.player.transform) {
@@ -1000,8 +1067,15 @@
       // 7. Populate Sidebar Filter List
       populateNodeFilters(nodeCounts, nodeModSources);
 
-      // Sync Landmass Scale to the World Size
+      // Sync Landmass Scale to the World Size and Add Landmass Layer
       updateScaleFromData(data);
+      const chkLandmass = document.getElementById('layer-landmass');
+      if (chkLandmass && chkLandmass.checked) {
+        if (!map.hasLayer(landmassLayer)) {
+          map.addLayer(landmassLayer);
+        }
+        landmassLayer.bringToBack();
+      }
 
       // 8. Center and Fit map to World Bounds
       if (data.world_bounds) {
@@ -1241,10 +1315,20 @@
         if (!select) return;
 
         select.innerHTML = '';
+        const hasActive = saves.some(s => s.is_active);
+
+        const placeholderOpt = document.createElement('option');
+        placeholderOpt.value = '';
+        placeholderOpt.disabled = true;
+        placeholderOpt.selected = !hasActive;
+        placeholderOpt.text = '-- Select a save file --';
+        select.appendChild(placeholderOpt);
+
         if (saves.length === 0) {
           const opt = document.createElement('option');
           opt.value = '';
-          opt.text = 'No saves found';
+          opt.disabled = true;
+          opt.text = 'No .sav files found in samples/';
           select.appendChild(opt);
         } else {
           for (const s of saves) {
@@ -1275,6 +1359,8 @@
     }
 
     async function loadSpecificSave(filename) {
+      if (!filename) return;
+      flushWorldState();
       showLoading(`Loading save: ${filename}...`);
       try {
         const res = await fetch(`/api/load?filename=${encodeURIComponent(filename)}`, { method: 'POST' });
@@ -1296,6 +1382,7 @@
 
     async function uploadSaveFile(file) {
       if (!file) return;
+      flushWorldState();
       showLoading(`Uploading & parsing: ${file.name}...`);
       try {
         const buffer = await file.arrayBuffer();
@@ -1357,9 +1444,9 @@
       }
     });
 
-    // Auto-load on page load
+    // On initial page load: flush everything clean, show empty state, do NOT auto-load save or map
     window.addEventListener('DOMContentLoaded', () => {
-      loadWorldData();
+      flushWorldState();
       fetchSavesList();
     });
   </script>

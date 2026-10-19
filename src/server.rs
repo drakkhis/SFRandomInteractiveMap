@@ -91,9 +91,7 @@ pub struct SaveEntry {
 /// Handler for GET /api/saves.
 pub async fn list_saves_handler(State(state): State<AppState>) -> impl IntoResponse {
     let active_opt = state.active_save_filename.read().await.clone();
-    let latest_path = find_latest_save(&state.samples_dir).ok();
-    let fallback_name = latest_path.and_then(|p| p.file_name().map(|f| f.to_string_lossy().to_string()));
-    let current_active = active_opt.or(fallback_name);
+    let current_active = active_opt;
 
     let mut entries = Vec::new();
     if let Ok(dir_entries) = fs::read_dir(&state.samples_dir) {
