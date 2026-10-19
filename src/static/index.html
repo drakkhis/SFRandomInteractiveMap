@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satisfactory RWG Interactive Map</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #121418;
+      --bg-panel: rgba(26, 29, 36, 0.92);
+      --bg-card: rgba(36, 40, 50, 0.85);
+      --accent-orange: #fa7b17;
+      --accent-orange-hover: #ff8e36;
+      --accent-cyan: #00d2ff;
+      --accent-green: #2ecc71;
+      --accent-gold: #f1c40f;
+      --accent-purple: #9b59b6;
+      --text-main: #f0f3f6;
+      --text-muted: #9aa5b5;
+      --border: rgba(255, 255, 255, 0.1);
+      --border-accent: rgba(250, 123, 23, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #0d0f12;
+    }
+
+    /* Grid background styling for Unreal space */
+    .leaflet-container {
+      background: radial-gradient(circle, #1a1e24 10%, #0c0e12 90%) !important;
+    }
+
+    /* Floating Header HUD */
+    .hud-header {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .hud-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ficsit-badge {
+      background: var(--accent-orange);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+    }
+
+    .hud-meta {
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-left: 1px solid var(--border);
+      padding-left: 14px;
+      display: flex;
+      gap: 14px;
+    }
+
+    .hud-meta span b {
+      color: var(--text-main);
+    }
+
+    .btn-refresh {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-refresh:hover {
+      background: var(--accent-orange);
+      border-color: var(--accent-orange);
+      color: #fff;
+    }
+
+    /* Sidebar / Filter Panel */
+    .sidebar-panel {
+      position: absolute;
+      top: 80px;
+      left: 16px;
+      bottom: 40px;
+      width: 320px;
+      z-index: 1000;
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .sidebar-panel.collapsed {
+      transform: translateX(-340px);
+    }
+
+    .sidebar-toggle {
+      position: absolute;
+      top: 12px;
+      right: -36px;
+      width: 36px;
+      height: 36px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-main);
+      box-shadow: 4px 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .sidebar-search {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-search input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: var(--text-main);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .sidebar-search input:focus {
+      border-color: var(--accent-orange);
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+    }
+
+    .sidebar-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .filter-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      background: var(--bg-card);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s;
+    }
+
+    .filter-item:hover {
+      border-color: var(--border-accent);
+      background: rgba(45, 50, 62, 0.9);
+    }
+
+    .filter-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .filter-color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .filter-name {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .filter-count {
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: rgba(0, 0, 0, 0.25);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .filter-item input[type="checkbox"] {
+      cursor: pointer;
+      accent-color: var(--accent-orange);
+    }
+
+    /* Bottom Coordinates HUD */
+    .coord-hud {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 1000;
+      background: var(--bg-panel);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      gap: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .coord-hud span b {
+      color: var(--accent-cyan);
+    }
+
+    /* Player Pulsing Icon */
+    .player-pulsing-icon {
+      position: relative;
+      width: 24px;
+      height: 24px;
+    }
+
+    .player-pulsing-icon .center-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      background: #00d2ff;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px #00d2ff;
+      z-index: 2;
+    }
+
+    .player-pulsing-icon .pulse-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 28px;
+      height: 28px;
+      border: 2px solid #00d2ff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      animation: pulseAnimation 2s infinite ease-out;
+      opacity: 0.8;
+      z-index: 1;
+    }
+
+    @keyframes pulseAnimation {
+      0% {
+        width: 12px;
+        height: 12px;
+        opacity: 1;
+      }
+      100% {
+        width: 42px;
+        height: 42px;
+        opacity: 0;
+      }
+    }
+
+    /* Custom Leaflet Tooltip */
+    .leaflet-tooltip.custom-tooltip {
+      background: rgba(20, 24, 30, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+
+    .tooltip-title {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tooltip-purity {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+
+    .purity-pure { background: #f1c40f; color: #111; }
+    .purity-normal { background: #3498db; color: #fff; }
+    .purity-impure { background: #7f8c8d; color: #fff; }
+
+    .tooltip-coords {
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Header HUD -->
+  <div class="hud-header">
+    <div class="hud-title">
+      <span class="ficsit-badge">FICSIT</span>
+      <span>Procedural World Map</span>
+    </div>
+    <div class="hud-meta">
+      <span>Session: <b id="meta-session">-</b></span>
+      <span>Seed: <b id="meta-seed">-</b></span>
+      <span>World Size: <b id="meta-size">-</b></span>
+      <span>Play Time: <b id="meta-time">-</b></span>
+      <span>Nodes: <b id="meta-nodes">-</b></span>
+      <span>Drop Pods: <b id="meta-pods">-</b></span>
+    </div>
+    <button class="btn-refresh" id="btn-refresh" onclick="loadWorldData()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- Sidebar Filter Panel -->
+  <div class="sidebar-panel" id="sidebar-panel">
+    <div class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">
+      <svg id="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </div>
+
+    <div class="sidebar-header">
+      <h2>Layer Controls</h2>
+    </div>
+
+    <div class="sidebar-search">
+      <input type="text" id="resource-search" placeholder="Search resources or nodes..." oninput="filterResourceList()">
+    </div>
+
+    <div class="sidebar-content">
+      <div class="sidebar-section-title">
+        <span>Terrain & Landmass</span>
+      </div>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-landmass" checked onchange="toggleLandmass()">
+          <div class="filter-color-dot" style="background: #27ae60; box-shadow: 0 0 6px #27ae60;"></div>
+          <span class="filter-name">Textured Landmass</span>
+        </div>
+      </label>
+      <div style="padding: 4px 10px 10px 10px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+          <span>Opacity</span>
+          <span id="landmass-opacity-val">85%</span>
+        </div>
+        <input type="range" id="landmass-opacity" min="0" max="100" value="85" style="width: 100%; accent-color: var(--accent-orange); cursor: pointer;" oninput="setLandmassOpacity(this.value)">
+
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+          <span>Scale Extent</span>
+          <span id="landmass-scale-desc">12.0 km (Auto)</span>
+        </div>
+        <select id="landmass-preset-select" onchange="onLandmassPresetChange(this.value)" style="width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 11px; color: var(--text-main); outline: none;">
+          <option value="auto" selected>Auto (from Save parameters)</option>
+          <option value="12000">12.0 km (RWG Default)</option>
+          <option value="7112">7.1 km (Vanilla Map)</option>
+          <option value="16000">16.0 km (Large World)</option>
+          <option value="custom">Custom Scale...</option>
+        </select>
+        <div id="custom-scale-container" style="display: none; flex-direction: column; gap: 4px;">
+          <input type="range" id="landmass-custom-scale" min="4000" max="24000" step="500" value="12000" style="width: 100%; accent-color: var(--accent-orange); cursor: pointer;" oninput="onCustomScaleInput(this.value)">
+          <div style="font-size: 10px; color: var(--text-muted); text-align: right;" id="custom-scale-val">12.0 km</div>
+        </div>
+
+        <button onclick="focusLandmass()" style="margin-top: 4px; padding: 6px 8px; font-size: 11px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; color: var(--text-main); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+          Fit to Landmass
+        </button>
+      </div>
+
+      <div class="sidebar-section-title">
+        <span>Special Layers</span>
+      </div>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-player" checked onchange="toggleSpecialLayer('player')">
+          <div class="filter-color-dot" style="background: #00d2ff; box-shadow: 0 0 6px #00d2ff;"></div>
+          <span class="filter-name">Pioneer (Player)</span>
+        </div>
+      </label>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-droppods" checked onchange="toggleSpecialLayer('droppods')">
+          <div class="filter-color-dot" style="background: #e74c3c;"></div>
+          <span class="filter-name">Drop Pods (Crash Sites)</span>
+        </div>
+        <span class="filter-count" id="count-droppods">0</span>
+      </label>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-deposits" onchange="toggleSpecialLayer('deposits')">
+          <div class="filter-color-dot" style="background: #bdc3c7;"></div>
+          <span class="filter-name">Resource Deposits</span>
+        </div>
+        <span class="filter-count" id="count-deposits">0</span>
+      </label>
+
+      <div class="sidebar-section-title">
+        <span>Resource Nodes</span>
+        <span style="cursor: pointer; color: var(--accent-orange);" onclick="toggleAllNodes()">Toggle All</span>
+      </div>
+
+      <div id="nodes-filter-list">
+        <!-- Dynamically populated resource filters -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Coordinates & Cursor HUD -->
+  <div class="coord-hud">
+    <span>X: <b id="hud-x">0.0</b></span>
+    <span>Y: <b id="hud-y">0.0</b></span>
+    <span>Zoom: <b id="hud-zoom">1.0</b></span>
+  </div>
+
+  <!-- Main Map Container -->
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // Color palette for Satisfactory resources
+    const RESOURCE_COLORS = {
+      'Iron': '#d35400',
+      'Copper': '#e67e22',
+      'Coal': '#34495e',
+      'Stone': '#ecf0f1',
+      'Limestone': '#ecf0f1',
+      'Caterium': '#f1c40f',
+      'Bauxite': '#e84393',
+      'RawQuartz': '#00cec9',
+      'Quartz': '#00cec9',
+      'Sulfur': '#fed330',
+      'Uranium': '#2ecc71',
+      'LiquidOil': '#2c3e50',
+      'CrudeOil': '#2c3e50',
+      'NitrogenGas': '#3867d6',
+      'Water': '#0abde3',
+      'SAM': '#9b59b6',
+      'Default': '#95a5a6'
+    };
+
+    function getResourceColor(name) {
+      if (!name) return RESOURCE_COLORS.Default;
+      for (const [key, color] of Object.entries(RESOURCE_COLORS)) {
+        if (name.toLowerCase().includes(key.toLowerCase())) {
+          return color;
+        }
+      }
+      return RESOURCE_COLORS.Default;
+    }
+
+    // Initialize Leaflet with simple flat Cartesian CRS
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -6,
+      maxZoom: 3,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      attributionControl: false
+    });
+
+    // Landmass bounds:
+    // In RWG procedural worlds, default WorldSizeMeters is 12 km (±6,000m = ±600,000cm).
+    // Bounds are dynamically synchronized to the save's WorldSizeMeters (or world_bounds).
+    let currentHalfExtent = 6000;
+    let activeLandmassBounds = [[-currentHalfExtent, -currentHalfExtent], [currentHalfExtent, currentHalfExtent]];
+    let landmassLayer = L.imageOverlay('/static/landmass.png', activeLandmassBounds, {
+      opacity: 0.85,
+      interactive: false
+    }).addTo(map);
+
+    // Layer groups
+    const layerGroups = {
+      player: L.layerGroup().addTo(map),
+      dropPods: L.layerGroup().addTo(map),
+      deposits: L.layerGroup(),
+      nodesByCategory: {}
+    };
+
+    let worldData = null;
+    let playerMarker = null;
+
+    // Convert UE (X, Y) centimeters to Leaflet [lat, lng]
+    // In Satisfactory Unreal coordinates:
+    // X is Forward (North-South in standard 2D view)
+    // Y is Right (East-West)
+    // Using lat = X / 100 (meters), lng = Y / 100 (meters)
+    function ueToLatLng(x, y) {
+      return [x / 100.0, y / 100.0];
+    }
+
+    function latLngToUe(lat, lng) {
+      return { x: lat * 100.0, y: lng * 100.0 };
+    }
+
+    // Mouse move coordinate display
+    map.on('mousemove', (e) => {
+      const ue = latLngToUe(e.latlng.lat, e.latlng.lng);
+      document.getElementById('hud-x').innerText = ue.x.toFixed(0);
+      document.getElementById('hud-y').innerText = ue.y.toFixed(0);
+    });
+
+    map.on('zoomend', () => {
+      document.getElementById('hud-zoom').innerText = map.getZoom().toFixed(2);
+    });
+
+    async function loadWorldData() {
+      try {
+        const res = await fetch('/api/world');
+        if (!res.ok) throw new Error('API returned ' + res.status);
+        worldData = await res.json();
+        renderWorld(worldData);
+      } catch (err) {
+        console.error('Failed to load world snapshot:', err);
+      }
+    }
+
+    function renderWorld(data) {
+      // Update HUD metadata
+      document.getElementById('meta-session').innerText = data.session_name || '-';
+      document.getElementById('meta-seed').innerText = data.world_seed !== null ? data.world_seed : 'Vanilla/None';
+      document.getElementById('meta-time').innerText = Math.round(data.play_duration_seconds / 60) + 'm';
+      document.getElementById('meta-nodes').innerText = data.total_nodes;
+      document.getElementById('meta-pods').innerText = data.total_drop_pods;
+      document.getElementById('count-droppods').innerText = data.total_drop_pods;
+      document.getElementById('count-deposits').innerText = data.resource_deposits ? data.resource_deposits.length : 0;
+
+      // Clear existing layers
+      layerGroups.player.clearLayers();
+      layerGroups.dropPods.clearLayers();
+      layerGroups.deposits.clearLayers();
+      for (const group of Object.values(layerGroups.nodesByCategory)) {
+        group.clearLayers();
+      }
+
+      if (landmassLayer && map.hasLayer(landmassLayer)) {
+        landmassLayer.bringToBack();
+      }
+
+      // 1. Render Player
+      if (data.player && data.player.transform) {
+        const [px, py, pz] = data.player.transform.translation;
+        const playerLatLng = ueToLatLng(px, py);
+
+        const playerHtmlIcon = L.divIcon({
+          className: 'player-pulsing-icon',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+          html: '<div class="pulse-ring"></div><div class="center-dot"></div>'
+        });
+
+        playerMarker = L.marker(playerLatLng, { icon: playerHtmlIcon })
+          .bindTooltip(`
+            <div class="custom-tooltip">
+              <div class="tooltip-title" style="color: #00d2ff;">
+                <span>Pioneer Location</span>
+              </div>
+              <div class="tooltip-coords">X: ${px.toFixed(1)}, Y: ${py.toFixed(1)}, Z: ${pz.toFixed(1)}</div>
+            </div>
+          `, { direction: 'top', className: 'custom-tooltip' });
+
+        layerGroups.player.addLayer(playerMarker);
+      }
+
+      // 2. Render Drop Pods
+      if (data.drop_pods) {
+        for (const pod of data.drop_pods) {
+          const [dx, dy, dz] = pod.transform.translation;
+          const latLng = ueToLatLng(dx, dy);
+
+          const marker = L.circleMarker(latLng, {
+            radius: 5,
+            color: '#e74c3c',
+            fillColor: '#c0392b',
+            fillOpacity: 0.9,
+            weight: 1.5
+          }).bindTooltip(`
+            <div class="custom-tooltip">
+              <div class="tooltip-title" style="color: #e74c3c;">Drop Pod (Crash Site)</div>
+              <div>Power Requirement: ${pod.power_consumption ? pod.power_consumption + ' MW' : 'None / Item Only'}</div>
+              <div class="tooltip-coords">X: ${dx.toFixed(0)}, Y: ${dy.toFixed(0)}, Z: ${dz.toFixed(0)}</div>
+            </div>
+          `, { direction: 'top', className: 'custom-tooltip' });
+
+          layerGroups.dropPods.addLayer(marker);
+        }
+      }
+
+      // 3. Render Resource Nodes (grouped by resource name)
+      const nodeCounts = {};
+      layerGroups.nodesByCategory = {};
+
+      if (data.resource_nodes) {
+        for (const node of data.resource_nodes) {
+          const rawName = node.resource_name || 'Unknown';
+          const rColor = getResourceColor(rawName);
+
+          if (!layerGroups.nodesByCategory[rawName]) {
+            layerGroups.nodesByCategory[rawName] = L.layerGroup().addTo(map);
+            nodeCounts[rawName] = 0;
+          }
+          nodeCounts[rawName]++;
+
+          const [nx, ny, nz] = node.transform.translation;
+          const latLng = ueToLatLng(nx, ny);
+
+          const purity = (node.purity || '').replace('RP_', '');
+          const purityClass = purity ? `purity-${purity.toLowerCase()}` : '';
+
+          const marker = L.circleMarker(latLng, {
+            radius: purity === 'Pure' ? 6 : (purity === 'Normal' ? 4.5 : 3.5),
+            color: '#ffffff',
+            fillColor: rColor,
+            fillOpacity: 0.95,
+            weight: 1.2
+          }).bindTooltip(`
+            <div class="custom-tooltip">
+              <div class="tooltip-title">
+                <span style="color: ${rColor};">●</span>
+                <span>${rawName} Node</span>
+                ${purity ? `<span class="tooltip-purity ${purityClass}">${purity}</span>` : ''}
+              </div>
+              <div class="tooltip-coords">X: ${nx.toFixed(0)}, Y: ${ny.toFixed(0)}, Z: ${nz.toFixed(0)}</div>
+            </div>
+          `, { direction: 'top', className: 'custom-tooltip' });
+
+          layerGroups.nodesByCategory[rawName].addLayer(marker);
+        }
+      }
+
+      // 4. Render Resource Deposits (optional layer)
+      if (data.resource_deposits) {
+        for (const dep of data.resource_deposits) {
+          const [dx, dy] = dep.transform.translation;
+          const latLng = ueToLatLng(dx, dy);
+
+          const marker = L.circleMarker(latLng, {
+            radius: 2,
+            color: '#7f8c8d',
+            fillColor: '#95a5a6',
+            fillOpacity: 0.6,
+            weight: 0.5
+          });
+
+          layerGroups.deposits.addLayer(marker);
+        }
+      }
+
+      // 5. Populate Sidebar Filter List
+      populateNodeFilters(nodeCounts);
+
+      // Sync Landmass Scale to the World Size
+      updateScaleFromData(data);
+
+      // 6. Center and Fit map to World Bounds
+      if (data.world_bounds) {
+        const b = data.world_bounds;
+        const southWest = ueToLatLng(b.min_x, b.min_y);
+        const northEast = ueToLatLng(b.max_x, b.max_y);
+        map.fitBounds([southWest, northEast], { padding: [50, 50] });
+      }
+    }
+
+    function populateNodeFilters(counts) {
+      const listEl = document.getElementById('nodes-filter-list');
+      listEl.innerHTML = '';
+
+      const sortedCategories = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+      for (const name of sortedCategories) {
+        const color = getResourceColor(name);
+        const count = counts[name];
+
+        const item = document.createElement('label');
+        item.className = 'filter-item';
+        item.dataset.name = name.toLowerCase();
+        item.innerHTML = `
+          <div class="filter-left">
+            <input type="checkbox" id="filter-${name}" checked onchange="toggleCategoryLayer('${name}')">
+            <div class="filter-color-dot" style="background: ${color};"></div>
+            <span class="filter-name">${name}</span>
+          </div>
+          <span class="filter-count">${count}</span>
+        `;
+        listEl.appendChild(item);
+      }
+    }
+
+    function applyLandmassBounds(half) {
+      currentHalfExtent = half;
+      activeLandmassBounds = [[-half, -half], [half, half]];
+      if (landmassLayer) {
+        landmassLayer.setBounds(activeLandmassBounds);
+        if (map.hasLayer(landmassLayer)) {
+          landmassLayer.bringToBack();
+        }
+      }
+    }
+
+    function updateScaleFromData(data) {
+      let halfExtent = 6000;
+      let label = '12.0 km';
+      if (data.world_size_meters && data.world_size_meters > 0) {
+        halfExtent = data.world_size_meters / 2.0;
+        label = (data.world_size_meters / 1000).toFixed(1) + ' km';
+      } else if (data.world_bounds) {
+        const b = data.world_bounds;
+        const maxCoord = Math.max(
+          Math.abs(b.min_x),
+          Math.abs(b.max_x),
+          Math.abs(b.min_y),
+          Math.abs(b.max_y)
+        ) / 100.0;
+        if (maxCoord > 4000) {
+          halfExtent = Math.max(6000, Math.ceil(maxCoord / 500) * 500);
+          label = ((halfExtent * 2) / 1000).toFixed(1) + ' km';
+        } else {
+          halfExtent = 3556;
+          label = '7.1 km';
+        }
+      }
+
+      const sizeEl = document.getElementById('meta-size');
+      if (sizeEl) sizeEl.innerText = label;
+
+      const descEl = document.getElementById('landmass-scale-desc');
+      if (descEl) descEl.innerText = label + ' (Auto)';
+
+      const presetSelect = document.getElementById('landmass-preset-select');
+      if (presetSelect && presetSelect.value === 'auto') {
+        applyLandmassBounds(halfExtent);
+      }
+    }
+
+    function onLandmassPresetChange(val) {
+      const customBox = document.getElementById('custom-scale-container');
+      if (val === 'custom') {
+        customBox.style.display = 'flex';
+        const sliderVal = parseFloat(document.getElementById('landmass-custom-scale').value);
+        applyLandmassBounds(sliderVal / 2.0);
+        document.getElementById('landmass-scale-desc').innerText = (sliderVal / 1000).toFixed(1) + ' km';
+      } else if (val === 'auto') {
+        customBox.style.display = 'none';
+        if (worldData) {
+          updateScaleFromData(worldData);
+        }
+      } else {
+        customBox.style.display = 'none';
+        const sizeMeters = parseFloat(val);
+        applyLandmassBounds(sizeMeters / 2.0);
+        document.getElementById('landmass-scale-desc').innerText = (sizeMeters / 1000).toFixed(1) + ' km';
+      }
+    }
+
+    function onCustomScaleInput(val) {
+      const sizeMeters = parseFloat(val);
+      document.getElementById('custom-scale-val').innerText = (sizeMeters / 1000).toFixed(1) + ' km';
+      document.getElementById('landmass-scale-desc').innerText = (sizeMeters / 1000).toFixed(1) + ' km';
+      applyLandmassBounds(sizeMeters / 2.0);
+    }
+
+    function toggleLandmass() {
+      const chk = document.getElementById('layer-landmass');
+      if (chk.checked) {
+        if (!map.hasLayer(landmassLayer)) {
+          map.addLayer(landmassLayer);
+          landmassLayer.bringToBack();
+        }
+      } else {
+        map.removeLayer(landmassLayer);
+      }
+    }
+
+    function setLandmassOpacity(val) {
+      const opacity = parseFloat(val) / 100.0;
+      document.getElementById('landmass-opacity-val').innerText = `${val}%`;
+      if (landmassLayer) {
+        landmassLayer.setOpacity(opacity);
+      }
+    }
+
+    function focusLandmass() {
+      if (activeLandmassBounds) {
+        map.fitBounds(activeLandmassBounds, { padding: [30, 30] });
+      }
+    }
+
+    function toggleSpecialLayer(type) {
+      if (type === 'player') {
+        const chk = document.getElementById('layer-player');
+        if (chk.checked) map.addLayer(layerGroups.player);
+        else map.removeLayer(layerGroups.player);
+      } else if (type === 'droppods') {
+        const chk = document.getElementById('layer-droppods');
+        if (chk.checked) map.addLayer(layerGroups.dropPods);
+        else map.removeLayer(layerGroups.dropPods);
+      } else if (type === 'deposits') {
+        const chk = document.getElementById('layer-deposits');
+        if (chk.checked) map.addLayer(layerGroups.deposits);
+        else map.removeLayer(layerGroups.deposits);
+      }
+    }
+
+    function toggleCategoryLayer(category) {
+      const chk = document.getElementById(`filter-${category}`);
+      const group = layerGroups.nodesByCategory[category];
+      if (!group) return;
+
+      if (chk.checked) {
+        map.addLayer(group);
+      } else {
+        map.removeLayer(group);
+      }
+    }
+
+    let allNodesActive = true;
+    function toggleAllNodes() {
+      allNodesActive = !allNodesActive;
+      for (const [name, group] of Object.entries(layerGroups.nodesByCategory)) {
+        const chk = document.getElementById(`filter-${name}`);
+        if (chk) chk.checked = allNodesActive;
+        if (allNodesActive) map.addLayer(group);
+        else map.removeLayer(group);
+      }
+    }
+
+    function filterResourceList() {
+      const query = document.getElementById('resource-search').value.toLowerCase();
+      const items = document.querySelectorAll('#nodes-filter-list .filter-item');
+      items.forEach(item => {
+        const name = item.dataset.name;
+        if (name.includes(query)) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    function toggleSidebar() {
+      const panel = document.getElementById('sidebar-panel');
+      panel.classList.toggle('collapsed');
+      const icon = document.getElementById('toggle-icon');
+      if (panel.classList.contains('collapsed')) {
+        icon.innerHTML = '<polyline points="9 18 15 12 9 6"></polyline>';
+      } else {
+        icon.innerHTML = '<polyline points="15 18 9 12 15 6"></polyline>';
+      }
+    }
+
+    // Auto-load on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadWorldData();
+    });
+  </script>
+</body>
+</html>
