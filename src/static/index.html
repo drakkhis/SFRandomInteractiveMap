@@ -428,7 +428,8 @@
         <div class="filter-left">
           <input type="checkbox" id="layer-landmass" checked onchange="toggleLandmass()">
           <div class="filter-color-dot" style="background: #27ae60; box-shadow: 0 0 6px #27ae60;"></div>
-          <span class="filter-name">Textured Landmass</span>
+          <span class="filter-name">Procedural Landmass</span>
+          <span style="font-size: 10px; color: var(--accent-cyan); background: rgba(0,210,255,0.15); border: 1px solid rgba(0,210,255,0.3); padding: 1px 5px; border-radius: 4px; margin-left: 4px;">RWG</span>
         </div>
       </label>
       <div style="padding: 4px 10px 10px 10px; display: flex; flex-direction: column; gap: 8px;">
@@ -443,9 +444,9 @@
           <span id="landmass-scale-desc">12.0 km (Auto)</span>
         </div>
         <select id="landmass-preset-select" onchange="onLandmassPresetChange(this.value)" style="width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 11px; color: var(--text-main); outline: none;">
-          <option value="auto" selected>Auto (from Save parameters)</option>
-          <option value="12000">12.0 km (RWG Default)</option>
-          <option value="7112">7.1 km (Vanilla Map)</option>
+          <option value="auto" selected>Auto (Save: 12.0 km Spliced)</option>
+          <option value="12000">12.0 km (RWG Spliced Continent)</option>
+          <option value="7112">7.1 km (Vanilla Map Template)</option>
           <option value="16000">16.0 km (Large World)</option>
           <option value="custom">Custom Scale...</option>
         </select>
