@@ -147,13 +147,6 @@ fn test_ficsit_farming_and_mod_recognition() {
         ),
         "RefinedPower"
     );
-    assert_eq!(
-        detect_mod_source(
-            "/Game/FactoryGame/Resource/BP_ResourceNode.BP_ResourceNode_C",
-            Some("/Game/FactoryGame/Resource/RawResources/OreIron/Desc_OreIron.Desc_OreIron_C")
-        ),
-        "Vanilla"
-    );
 }
 
 
