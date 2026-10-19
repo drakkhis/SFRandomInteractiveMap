@@ -73,8 +73,8 @@ async fn test_api_world_endpoint() {
     assert!(!saves.is_empty(), "Expected at least one save file in samples/");
     assert!(saves.iter().any(|s| s.filename.ends_with(".sav")));
 
-    // 2d. Test POST /api/load explicitly with RP Test_autosave_1.sav
-    let target_save_name = "RP Test_autosave_1.sav";
+    // 2d. Test POST /api/load explicitly with the first discovered save
+    let target_save_name = &saves[0].filename;
     let safe_encoded = target_save_name.replace(' ', "%20");
     let load_req = Request::builder()
         .uri(format!("/api/load?filename={}", safe_encoded))
