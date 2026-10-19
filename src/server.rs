@@ -175,7 +175,9 @@ pub async fn upload_save_handler(
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed parsing uploaded save: {}", e)))?;
 
     let snapshot = summary.to_world_snapshot();
-    let mtime = SystemTime::now();
+    let mtime = fs::metadata(&target_path)
+        .and_then(|m| m.modified())
+        .unwrap_or_else(|_| SystemTime::now());
 
     // Update active save and cache
     {

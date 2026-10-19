@@ -653,6 +653,7 @@
       'Water': '#0abde3',
       'SAM': '#9b59b6',
       'Thorium': '#a55eea',
+      'Deanium': '#ff9f43',
       'Geothermal': '#eb3b5a',
       'Geyser': '#eb4d4b',
       'Fracking': '#00cec9',
@@ -664,14 +665,25 @@
       'Platinum': '#f5cd79',
       'Salt': '#f1f2f6',
       'Biomass': '#10ac84',
-      'Loam': '#5c4033',
-      'Peat': '#3d2817',
+      // Ficsit Farming
+      'Fertilized Dirt': '#a0522d',
+      'Wet Dirt': '#5c4033',
       'Dirt': '#8b5a2b',
+      'Loam': '#795548',
+      'Peat': '#3d2817',
       'Algie Mass': '#20bf6b',
       'Algae Mass': '#20bf6b',
       'Algal Mass': '#20bf6b',
       'Algae': '#20bf6b',
       'Algie': '#20bf6b',
+      // Satisfactory Plus / KLib
+      'Kerr Crystal': '#9c27b0',
+      'Quantum Crystal': '#9c27b0',
+      'Res_KerrCrystal': '#9c27b0',
+      'Chlorine Gas': '#00d2d3',
+      'Gas_Chlor': '#00d2d3',
+      'Bio Water': '#1dd1a1',
+      'Res_LiquidBioWater': '#1dd1a1',
       'Default': '#95a5a6'
     };
 
@@ -794,7 +806,11 @@
       layerGroups.deposits.clearLayers();
       for (const group of Object.values(layerGroups.nodesByCategory)) {
         group.clearLayers();
+        if (map.hasLayer(group)) {
+          map.removeLayer(group);
+        }
       }
+      layerGroups.nodesByCategory = {};
 
       if (landmassLayer && map.hasLayer(landmassLayer)) {
         landmassLayer.bringToBack();
@@ -992,8 +1008,9 @@
         const b = data.world_bounds;
         const southWest = ueToLatLng(b.min_x, b.min_y);
         const northEast = ueToLatLng(b.max_x, b.max_y);
-        map.fitBounds([southWest, northEast], { padding: [50, 50] });
+        map.fitBounds([southWest, northEast], { padding: [50, 50], animate: false });
       }
+      map.invalidateSize();
     }
 
     function populateNodeFilters(counts, modSources) {
@@ -1020,12 +1037,15 @@
           badgeTag = '<span class="mod-badge-well">Well</span>';
         }
 
+        const safeId = 'filter-' + name.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const escapedName = name.replace(/'/g, "\\'");
+
         const item = document.createElement('label');
         item.className = 'filter-item';
         item.dataset.name = name.toLowerCase();
         item.innerHTML = `
           <div class="filter-left">
-            <input type="checkbox" id="filter-${name}" checked onchange="toggleCategoryLayer('${name}')">
+            <input type="checkbox" id="${safeId}" checked onchange="toggleCategoryLayer('${escapedName}')">
             <div class="filter-color-dot" style="background: ${color};"></div>
             <span class="filter-name">${name}</span>
             ${badgeTag}
@@ -1160,14 +1180,15 @@
     }
 
     function toggleCategoryLayer(category) {
-      const chk = document.getElementById(`filter-${category}`);
+      const safeId = 'filter-' + category.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const chk = document.getElementById(safeId);
       const group = layerGroups.nodesByCategory[category];
       if (!group) return;
 
-      if (chk.checked) {
-        map.addLayer(group);
+      if (chk && chk.checked) {
+        if (!map.hasLayer(group)) map.addLayer(group);
       } else {
-        map.removeLayer(group);
+        if (map.hasLayer(group)) map.removeLayer(group);
       }
     }
 
@@ -1175,10 +1196,14 @@
     function toggleAllNodes() {
       allNodesActive = !allNodesActive;
       for (const [name, group] of Object.entries(layerGroups.nodesByCategory)) {
-        const chk = document.getElementById(`filter-${name}`);
+        const safeId = 'filter-' + name.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const chk = document.getElementById(safeId);
         if (chk) chk.checked = allNodesActive;
-        if (allNodesActive) map.addLayer(group);
-        else map.removeLayer(group);
+        if (allNodesActive) {
+          if (!map.hasLayer(group)) map.addLayer(group);
+        } else {
+          if (map.hasLayer(group)) map.removeLayer(group);
+        }
       }
     }
 
@@ -1243,7 +1268,6 @@
     async function onSaveSelectChange(val) {
       if (val === '__upload__') {
         document.getElementById('save-file-input').click();
-        fetchSavesList();
         return;
       }
       if (!val) return;
@@ -1259,6 +1283,7 @@
           throw new Error(errText || 'Failed loading save');
         }
         worldData = await res.json();
+        console.log('Loaded snapshot for:', worldData.session_name, 'Nodes:', worldData.total_nodes);
         renderWorld(worldData);
         await fetchSavesList();
       } catch (err) {
@@ -1284,6 +1309,7 @@
           throw new Error(errText || 'Failed parsing uploaded save');
         }
         worldData = await res.json();
+        console.log('Uploaded and loaded snapshot for:', worldData.session_name, 'Nodes:', worldData.total_nodes);
         renderWorld(worldData);
         await fetchSavesList();
       } catch (err) {

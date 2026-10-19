@@ -1156,11 +1156,20 @@ pub fn detect_mod_source(actor_path: &str, res_class: Option<&str>) -> String {
         || lower.contains("dirt")
     {
         "FicsitFarming".to_string()
-    } else if lower.contains("refinedpower") || lower.contains("rp_") || lower.contains("refinedrd") {
+    } else if lower.contains("refinedpower")
+        || lower.contains("rp_")
+        || lower.contains("refinedrd")
+        || lower.contains("deanium")
+    {
         "RefinedPower".to_string()
     } else if lower.contains("satisfactoryplus")
         || lower.contains("sfplus")
         || lower.contains("/kits/")
+        || lower.contains("/klib/")
+        || lower.contains("klib")
+        || lower.contains("kerrcrystal")
+        || lower.contains("biowater")
+        || lower.contains("chlor")
         || lower.contains("algal")
         || lower.contains("algae")
         || lower.contains("algie")
@@ -1196,15 +1205,21 @@ pub fn extract_clean_name(path: &str) -> String {
         "Geyser" => "Geyser".to_string(),
         // Refined Power
         "Thorium" => "Thorium".to_string(),
+        "Deanium" => "Deanium".to_string(),
         "Geothermal" => "Geothermal".to_string(),
         "HighYieldWater" => "High Yield Water".to_string(),
         // Ficsit Farming
+        "Dirt_Fertilized" | "DirtFertilized" | "FertilizedDirt" => "Fertilized Dirt".to_string(),
+        "Dirt_Wet" | "DirtWet" | "WetDirt" => "Wet Dirt".to_string(),
         "Loam" | "LoamSoil" | "OreLoam" => "Loam".to_string(),
         "Peat" | "PeatSoil" | "OrePeat" => "Peat".to_string(),
         "Dirt" | "DirtSoil" | "OreDirt" => "Dirt".to_string(),
         // Algal / Algae / Algie Mass (Satisfactory Plus & Ficsit Farming)
         "AlgalMass" | "AlgaeMass" | "AlgieMass" | "Algal" | "Algae" | "Algie" => "Algie Mass".to_string(),
-        // Satisfactory Plus
+        // Satisfactory Plus & KLib
+        "Res_KerrCrystal" | "KerrCrystal" | "QuantumCrystal" => "Kerr Crystal".to_string(),
+        "Gas_Chlor" | "GasChlor" | "Chlor" | "Chlorine" => "Chlorine Gas".to_string(),
+        "Res_LiquidBioWater" | "LiquidBioWater" | "BioWater" => "Bio Water".to_string(),
         "OreLead" | "Lead" => "Lead".to_string(),
         "OreZinc" | "Zinc" => "Zinc".to_string(),
         "OreSilver" | "Silver" => "Silver".to_string(),
@@ -1215,7 +1230,11 @@ pub fn extract_clean_name(path: &str) -> String {
         "Biomass" => "Biomass".to_string(),
         other => {
             let lower = other.to_lowercase();
-            if lower.contains("loam") {
+            if lower.contains("fertil") {
+                "Fertilized Dirt".to_string()
+            } else if lower.contains("wet") && lower.contains("dirt") {
+                "Wet Dirt".to_string()
+            } else if lower.contains("loam") {
                 "Loam".to_string()
             } else if lower.contains("peat") {
                 "Peat".to_string()
@@ -1223,6 +1242,14 @@ pub fn extract_clean_name(path: &str) -> String {
                 "Dirt".to_string()
             } else if lower.contains("alga") || lower.contains("algi") {
                 "Algie Mass".to_string()
+            } else if lower.contains("kerr") || lower.contains("quantumcrystal") {
+                "Kerr Crystal".to_string()
+            } else if lower.contains("chlor") {
+                "Chlorine Gas".to_string()
+            } else if lower.contains("biowater") {
+                "Bio Water".to_string()
+            } else if lower.contains("deanium") {
+                "Deanium".to_string()
             } else {
                 let clean = other.strip_prefix("Ore").unwrap_or(other);
                 clean.to_string()
