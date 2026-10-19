@@ -199,6 +199,8 @@ pub struct RwgActorsSummary {
     pub somersloops: Vec<ArtifactSummary>,
     #[serde(default)]
     pub mercer_spheres: Vec<ArtifactSummary>,
+    #[serde(skip)]
+    pub generated_map_png: Option<Vec<u8>>,
 }
 
 /// 2D/3D spatial bounds of the world.

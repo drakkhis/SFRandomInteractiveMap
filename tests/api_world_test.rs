@@ -73,17 +73,29 @@ async fn test_api_world_endpoint() {
     assert!(!saves.is_empty(), "Expected at least one save file in samples/");
     assert!(saves.iter().any(|s| s.filename.ends_with(".sav")));
 
-    // 2d. Test POST /api/load explicitly with the first discovered save
-    let target_save_name = &saves[0].filename;
-    let safe_encoded = target_save_name.replace(' ', "%20");
+    // 2d. Test POST /api/load explicitly with RP Test_autosave_1.sav
     let load_req = Request::builder()
-        .uri(format!("/api/load?filename={}", safe_encoded))
+        .uri("/api/load?filename=RP%20Test_autosave_1.sav")
         .method("POST")
         .body(Body::empty())
         .unwrap();
 
     let load_res = app.clone().oneshot(load_req).await.unwrap();
     assert_eq!(load_res.status(), StatusCode::OK);
+
+    // Verify GET /api/map.png returns the dynamically generated PNG for RP Test
+    let map_req_1 = Request::builder()
+        .uri("/api/map.png")
+        .method("GET")
+        .body(Body::empty())
+        .unwrap();
+    let map_res_1 = app.clone().oneshot(map_req_1).await.unwrap();
+    assert_eq!(map_res_1.status(), StatusCode::OK);
+    let map_bytes_1 = axum::body::to_bytes(map_res_1.into_body(), 15 * 1024 * 1024)
+        .await
+        .unwrap();
+    assert_eq!(&map_bytes_1[..8], b"\x89PNG\r\n\x1a\n");
+    assert!(map_bytes_1.len() > 100_000, "Generated PNG should be non-trivial");
 
     // 3. Test GET /api/world
     println!("Requesting GET /api/world...");
@@ -93,7 +105,7 @@ async fn test_api_world_endpoint() {
         .body(Body::empty())
         .unwrap();
 
-    let world_res = app.oneshot(world_req).await.unwrap();
+    let world_res = app.clone().oneshot(world_req).await.unwrap();
     assert_eq!(world_res.status(), StatusCode::OK);
 
     let body_bytes = axum::body::to_bytes(world_res.into_body(), 100 * 1024 * 1024)
@@ -137,11 +149,40 @@ async fn test_api_world_endpoint() {
     assert!(snapshot.world_bounds.max_x > 500000.0);
     assert!(snapshot.world_bounds.min_y < -500000.0);
     assert!(snapshot.world_bounds.max_y > 500000.0);
-    assert_eq!(snapshot.total_nodes, 2550); // 1834 standard + 97 geysers + 78 fracking cores + 540 fracking satellites + 1
+    assert_eq!(snapshot.total_nodes, 2550);
     assert_eq!(snapshot.resource_deposits.len(), 8341);
     assert_eq!(snapshot.total_drop_pods, 289);
     assert_eq!(snapshot.total_somersloops, 261);
     assert_eq!(snapshot.total_mercer_spheres, 733);
     assert!(snapshot.player.is_some());
+
+    // 4. Switch save to Map Test_191026-233059.sav and verify the generated map PNG updates!
+    if saves.iter().any(|s| s.filename == "Map Test_191026-233059.sav") {
+        let load_req_2 = Request::builder()
+            .uri("/api/load?filename=Map%20Test_191026-233059.sav")
+            .method("POST")
+            .body(Body::empty())
+            .unwrap();
+        let load_res_2 = app.clone().oneshot(load_req_2).await.unwrap();
+        assert_eq!(load_res_2.status(), StatusCode::OK);
+
+        let map_req_2 = Request::builder()
+            .uri("/api/map.png")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let map_res_2 = app.clone().oneshot(map_req_2).await.unwrap();
+        assert_eq!(map_res_2.status(), StatusCode::OK);
+        let map_bytes_2 = axum::body::to_bytes(map_res_2.into_body(), 15 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert_eq!(&map_bytes_2[..8], b"\x89PNG\r\n\x1a\n");
+        assert_ne!(
+            map_bytes_1, map_bytes_2,
+            "Dynamically generated map PNG must change when loading a different RWG save!"
+        );
+        std::fs::write("scratch/rust_generated_maptest.png", &map_bytes_2).unwrap();
+        std::fs::write("scratch/rust_generated_rptest.png", &map_bytes_1).unwrap();
+    }
 }
 

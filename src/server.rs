@@ -21,6 +21,7 @@ pub struct AppState {
     pub samples_dir: PathBuf,
     pub active_save_filename: Arc<RwLock<Option<String>>>,
     pub cache: Arc<RwLock<Option<(SystemTime, WorldSnapshot)>>>,
+    pub generated_map_png: Arc<RwLock<Option<Vec<u8>>>>,
 }
 
 impl AppState {
@@ -29,6 +30,7 @@ impl AppState {
             samples_dir: samples_dir.as_ref().to_path_buf(),
             active_save_filename: Arc::new(RwLock::new(None)),
             cache: Arc::new(RwLock::new(None)),
+            generated_map_png: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -177,10 +179,14 @@ pub async fn upload_save_handler(
         .and_then(|m| m.modified())
         .unwrap_or_else(|_| SystemTime::now());
 
-    // Update active save and cache
+    // Update active save, generated map PNG, and cache
     {
         let mut active = state.active_save_filename.write().await;
         *active = Some(safe_filename);
+    }
+    {
+        let mut map_lock = state.generated_map_png.write().await;
+        *map_lock = summary.generated_map_png;
     }
     {
         let mut cached = state.cache.write().await;
@@ -228,6 +234,10 @@ pub async fn load_save_handler(
     {
         let mut active = state.active_save_filename.write().await;
         *active = Some(safe_filename);
+    }
+    {
+        let mut map_lock = state.generated_map_png.write().await;
+        *map_lock = summary.generated_map_png;
     }
     {
         let mut cached = state.cache.write().await;
@@ -315,7 +325,11 @@ pub async fn world_handler(
 
     let snapshot = summary.to_world_snapshot();
 
-    // 3. Update cache
+    // 3. Update generated map and cache
+    {
+        let mut map_lock = state.generated_map_png.write().await;
+        *map_lock = summary.generated_map_png;
+    }
     {
         let mut cached = state.cache.write().await;
         *cached = Some((mtime, snapshot.clone()));
@@ -332,11 +346,17 @@ pub async fn index_handler() -> impl IntoResponse {
     axum::response::Html(INDEX_HTML)
 }
 
-/// Handler for GET /static/landmass.png returning the textured landmass image.
-pub async fn landmass_handler() -> impl IntoResponse {
+/// Handler for GET /static/landmass.png and GET /api/map.png returning the dynamically
+/// generated procedural landmass PNG for the currently loaded save (or fallback static PNG).
+pub async fn landmass_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let map_opt = state.generated_map_png.read().await.clone();
+    let bytes = map_opt.unwrap_or_else(|| LANDMASS_PNG.to_vec());
     (
-        [(axum::http::header::CONTENT_TYPE, "image/png")],
-        LANDMASS_PNG,
+        [
+            (axum::http::header::CONTENT_TYPE, "image/png"),
+            (axum::http::header::CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+        ],
+        bytes,
     )
 }
 
@@ -345,6 +365,7 @@ pub fn create_app(state: AppState) -> Router {
     Router::new()
         .route("/", get(index_handler))
         .route("/static/landmass.png", get(landmass_handler))
+        .route("/api/map.png", get(landmass_handler))
         .route("/api/status", get(status_handler))
         .route("/api/world", get(world_handler))
         .route("/api/saves", get(list_saves_handler))

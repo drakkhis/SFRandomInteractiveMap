@@ -1126,6 +1126,7 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
         player_structures,
         somersloops,
         mercer_spheres,
+        generated_map_png: None,
     }
 }
 

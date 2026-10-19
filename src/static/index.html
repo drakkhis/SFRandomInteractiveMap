@@ -733,7 +733,7 @@
     // Landmass bounds (Layer NOT added to map until a save is explicitly loaded)
     let currentHalfExtent = 6000;
     let activeLandmassBounds = [[-currentHalfExtent, -currentHalfExtent], [currentHalfExtent, currentHalfExtent]];
-    let landmassLayer = L.imageOverlay('/static/landmass.png', activeLandmassBounds, {
+    let landmassLayer = L.imageOverlay('/api/map.png', activeLandmassBounds, {
       opacity: 0.85,
       interactive: false
     });
@@ -752,16 +752,15 @@
     let playerMarker = null;
 
     // Convert UE (X, Y) centimeters to Leaflet [lat, lng]
-    // In Satisfactory Unreal coordinates:
-    // X is Forward (North-South in standard 2D view)
-    // Y is Right (East-West)
-    // Using lat = X / 100 (meters), lng = Y / 100 (meters)
+    // In Satisfactory & RWG:
+    // X is West-to-East (horizontal axis: left = -6000m, right = +6000m -> lng = X / 100.0)
+    // Y is North-to-South (vertical axis: top = -6000m, bottom = +6000m -> lat = -Y / 100.0)
     function ueToLatLng(x, y) {
-      return [x / 100.0, y / 100.0];
+      return [-y / 100.0, x / 100.0];
     }
 
     function latLngToUe(lat, lng) {
-      return { x: lat * 100.0, y: lng * 100.0 };
+      return { x: lng * 100.0, y: -lat * 100.0 };
     }
 
     // Mouse move coordinate display
@@ -1067,8 +1066,11 @@
       // 7. Populate Sidebar Filter List
       populateNodeFilters(nodeCounts, nodeModSources);
 
-      // Sync Landmass Scale to the World Size and Add Landmass Layer
+      // Sync Landmass Scale to the World Size, refresh generated map URL, and Add Landmass Layer
       updateScaleFromData(data);
+      if (landmassLayer) {
+        landmassLayer.setUrl('/api/map.png?t=' + Date.now());
+      }
       const chkLandmass = document.getElementById('layer-landmass');
       if (chkLandmass && chkLandmass.checked) {
         if (!map.hasLayer(landmassLayer)) {
@@ -1080,9 +1082,9 @@
       // 8. Center and Fit map to World Bounds
       if (data.world_bounds) {
         const b = data.world_bounds;
-        const southWest = ueToLatLng(b.min_x, b.min_y);
-        const northEast = ueToLatLng(b.max_x, b.max_y);
-        map.fitBounds([southWest, northEast], { padding: [50, 50], animate: false });
+        const corner1 = ueToLatLng(b.min_x, b.min_y);
+        const corner2 = ueToLatLng(b.max_x, b.max_y);
+        map.fitBounds([corner1, corner2], { padding: [50, 50], animate: false });
       }
       map.invalidateSize();
     }
