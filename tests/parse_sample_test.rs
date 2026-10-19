@@ -95,4 +95,66 @@ fn test_parse_sample_save() {
     );
 }
 
+#[test]
+fn test_ficsit_farming_and_mod_recognition() {
+    use sat_rwg_map::{detect_mod_source, extract_clean_name};
+
+    // Test Ficsit Farming soils
+    assert_eq!(extract_clean_name("/FicsitFarming/Resource/Desc_Loam.Desc_Loam_C"), "Loam");
+    assert_eq!(extract_clean_name("/FicsitFarming/Resource/Desc_Peat.Desc_Peat_C"), "Peat");
+    assert_eq!(extract_clean_name("/FicsitFarming/Resource/Desc_PeatSoil.Desc_PeatSoil_C"), "Peat");
+    assert_eq!(extract_clean_name("/FicsitFarming/Resource/Desc_Dirt.Desc_Dirt_C"), "Dirt");
+    assert_eq!(extract_clean_name("/FicsitFarming/Resource/Desc_FF_Dirt.Desc_FF_Dirt_C"), "Dirt");
+
+    // Test Algie Mass / Algal Mass
+    assert_eq!(extract_clean_name("/SatisfactoryPlus/Resource/Desc_AlgalMass.Desc_AlgalMass_C"), "Algie Mass");
+    assert_eq!(extract_clean_name("/SatisfactoryPlus/Resource/Desc_AlgieMass.Desc_AlgieMass_C"), "Algie Mass");
+    assert_eq!(extract_clean_name("/FicsitFarming/Resource/Desc_AlgaeMass.Desc_AlgaeMass_C"), "Algie Mass");
+
+    // Test Mod Source Detection
+    assert_eq!(
+        detect_mod_source(
+            "/Game/FactoryGame/Resource/BP_ResourceNode.BP_ResourceNode_C",
+            Some("/FicsitFarming/Resource/Desc_Loam.Desc_Loam_C")
+        ),
+        "FicsitFarming"
+    );
+    assert_eq!(
+        detect_mod_source(
+            "/Game/FactoryGame/Resource/BP_ResourceNode.BP_ResourceNode_C",
+            Some("/FicsitFarming/Resource/Desc_Peat.Desc_Peat_C")
+        ),
+        "FicsitFarming"
+    );
+    assert_eq!(
+        detect_mod_source(
+            "/Game/FactoryGame/Resource/BP_ResourceNode.BP_ResourceNode_C",
+            Some("/FicsitFarming/Resource/Desc_Dirt.Desc_Dirt_C")
+        ),
+        "FicsitFarming"
+    );
+    assert_eq!(
+        detect_mod_source(
+            "/Game/FactoryGame/Resource/BP_ResourceNode.BP_ResourceNode_C",
+            Some("/SatisfactoryPlus/Resource/Desc_AlgalMass.Desc_AlgalMass_C")
+        ),
+        "SatisfactoryPlus"
+    );
+    assert_eq!(
+        detect_mod_source(
+            "/Game/FactoryGame/Resource/BP_ResourceNode.BP_ResourceNode_C",
+            Some("/RefinedPower/World/ResourceNodes/Thorium/Desc_RP_Thorium.Desc_RP_Thorium_C")
+        ),
+        "RefinedPower"
+    );
+    assert_eq!(
+        detect_mod_source(
+            "/Game/FactoryGame/Resource/BP_ResourceNode.BP_ResourceNode_C",
+            Some("/Game/FactoryGame/Resource/RawResources/OreIron/Desc_OreIron.Desc_OreIron_C")
+        ),
+        "Vanilla"
+    );
+}
+
+
 

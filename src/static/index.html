@@ -402,6 +402,17 @@
       margin-left: 6px;
     }
 
+    .mod-badge-farming {
+      background: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+      border: 1px solid rgba(46, 204, 113, 0.5);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
+
     .mod-badge-geyser {
       background: rgba(235, 77, 75, 0.2);
       color: #ff7675;
@@ -612,6 +623,14 @@
       'Platinum': '#f5cd79',
       'Salt': '#f1f2f6',
       'Biomass': '#10ac84',
+      'Loam': '#5c4033',
+      'Peat': '#3d2817',
+      'Dirt': '#8b5a2b',
+      'Algie Mass': '#20bf6b',
+      'Algae Mass': '#20bf6b',
+      'Algal Mass': '#20bf6b',
+      'Algae': '#20bf6b',
+      'Algie': '#20bf6b',
       'Default': '#95a5a6'
     };
 
@@ -855,6 +874,8 @@
             badgeHtml += '<span class="mod-badge-rp">Refined Power</span>';
           } else if (node.mod_source === 'SatisfactoryPlus') {
             badgeHtml += '<span class="mod-badge-sfplus">Satisfactory+</span>';
+          } else if (node.mod_source === 'FicsitFarming') {
+            badgeHtml += '<span class="mod-badge-farming">Ficsit Farming</span>';
           }
 
           if (node.node_type === 'Geyser') {
@@ -934,6 +955,8 @@
           badgeTag = '<span class="mod-badge-rp">RP</span>';
         } else if (modSource === 'SatisfactoryPlus') {
           badgeTag = '<span class="mod-badge-sfplus">SF+</span>';
+        } else if (modSource === 'FicsitFarming') {
+          badgeTag = '<span class="mod-badge-farming">FF</span>';
         } else if (modSource === 'Geyser') {
           badgeTag = '<span class="mod-badge-geyser">Geyser</span>';
         } else if (modSource && modSource.includes('Fracking')) {

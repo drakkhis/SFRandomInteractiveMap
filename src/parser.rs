@@ -1132,19 +1132,39 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
 /// Helper to standardize purity strings.
 pub fn clean_purity(val: &str) -> String {
     match val {
-        "RP_Inpure" | "Inpure" | "Impure" => "Impure".to_string(),
-        "RP_Normal" | "Normal" => "Normal".to_string(),
-        "RP_Pure" | "Pure" => "Pure".to_string(),
-        other => other.strip_prefix("RP_").unwrap_or(other).to_string(),
+        "RP_Inpure" | "FF_Inpure" | "Inpure" | "Impure" => "Impure".to_string(),
+        "RP_Normal" | "FF_Normal" | "Normal" => "Normal".to_string(),
+        "RP_Pure" | "FF_Pure" | "Pure" => "Pure".to_string(),
+        other => {
+            let clean = other.strip_prefix("RP_").unwrap_or(other);
+            let clean = clean.strip_prefix("FF_").unwrap_or(clean);
+            clean.to_string()
+        }
     }
 }
 
-/// Detects whether an actor or resource comes from Refined Power, Satisfactory Plus, or Vanilla.
+/// Detects whether an actor or resource comes from Refined Power, Satisfactory Plus, Ficsit Farming, or Vanilla.
 pub fn detect_mod_source(actor_path: &str, res_class: Option<&str>) -> String {
     let combined = format!("{} {}", actor_path, res_class.unwrap_or(""));
-    if combined.contains("RefinedPower") || combined.contains("RP_") || combined.contains("RefinedRD") {
+    let lower = combined.to_lowercase();
+
+    if lower.contains("ficsitfarming")
+        || lower.contains("ff_")
+        || lower.contains("farming")
+        || lower.contains("loam")
+        || lower.contains("peat")
+        || lower.contains("dirt")
+    {
+        "FicsitFarming".to_string()
+    } else if lower.contains("refinedpower") || lower.contains("rp_") || lower.contains("refinedrd") {
         "RefinedPower".to_string()
-    } else if combined.contains("SatisfactoryPlus") || combined.contains("SFPlus") || combined.contains("/Kits/") {
+    } else if lower.contains("satisfactoryplus")
+        || lower.contains("sfplus")
+        || lower.contains("/kits/")
+        || lower.contains("algal")
+        || lower.contains("algae")
+        || lower.contains("algie")
+    {
         "SatisfactoryPlus".to_string()
     } else {
         "Vanilla".to_string()
@@ -1156,6 +1176,8 @@ pub fn extract_clean_name(path: &str) -> String {
     let name = path.rsplit('.').next().unwrap_or(path);
     let name = name.strip_prefix("Desc_").unwrap_or(name);
     let name = name.strip_suffix("_C").unwrap_or(name);
+    let name = name.strip_prefix("FF_").unwrap_or(name);
+    let name = name.strip_prefix("RP_").unwrap_or(name);
 
     match name {
         "OreIron" | "Iron" => "Iron".to_string(),
@@ -1173,9 +1195,15 @@ pub fn extract_clean_name(path: &str) -> String {
         "NitrogenGas" => "Nitrogen Gas".to_string(),
         "Geyser" => "Geyser".to_string(),
         // Refined Power
-        "RP_Thorium" | "Thorium" => "Thorium".to_string(),
-        "RP_Geothermal" => "Geothermal".to_string(),
-        "RP_HighYieldWater" => "High Yield Water".to_string(),
+        "Thorium" => "Thorium".to_string(),
+        "Geothermal" => "Geothermal".to_string(),
+        "HighYieldWater" => "High Yield Water".to_string(),
+        // Ficsit Farming
+        "Loam" | "LoamSoil" | "OreLoam" => "Loam".to_string(),
+        "Peat" | "PeatSoil" | "OrePeat" => "Peat".to_string(),
+        "Dirt" | "DirtSoil" | "OreDirt" => "Dirt".to_string(),
+        // Algal / Algae / Algie Mass (Satisfactory Plus & Ficsit Farming)
+        "AlgalMass" | "AlgaeMass" | "AlgieMass" | "Algal" | "Algae" | "Algie" => "Algie Mass".to_string(),
         // Satisfactory Plus
         "OreLead" | "Lead" => "Lead".to_string(),
         "OreZinc" | "Zinc" => "Zinc".to_string(),
@@ -1186,9 +1214,19 @@ pub fn extract_clean_name(path: &str) -> String {
         "Salt" | "RockSalt" => "Rock Salt".to_string(),
         "Biomass" => "Biomass".to_string(),
         other => {
-            let clean = other.strip_prefix("RP_").unwrap_or(other);
-            let clean = clean.strip_prefix("Ore").unwrap_or(clean);
-            clean.to_string()
+            let lower = other.to_lowercase();
+            if lower.contains("loam") {
+                "Loam".to_string()
+            } else if lower.contains("peat") {
+                "Peat".to_string()
+            } else if lower.contains("dirt") {
+                "Dirt".to_string()
+            } else if lower.contains("alga") || lower.contains("algi") {
+                "Algie Mass".to_string()
+            } else {
+                let clean = other.strip_prefix("Ore").unwrap_or(other);
+                clean.to_string()
+            }
         }
     }
 }

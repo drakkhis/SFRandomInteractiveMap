@@ -9,7 +9,7 @@ use std::path::Path;
 
 pub use decompressor::decompress_save_chunks;
 pub use models::*;
-pub use parser::{extract_rwg_summary, parse_save_game, parse_save_header};
+pub use parser::{clean_purity, detect_mod_source, extract_clean_name, extract_rwg_summary, parse_save_game, parse_save_header};
 pub use server::{create_app, find_latest_save, AppState};
 
 /// Loads a Satisfactory save file from disk, parses headers, decompresses chunks,
