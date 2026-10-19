@@ -434,6 +434,10 @@
       border-radius: 3px;
       margin-left: 6px;
     }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -454,12 +458,49 @@
       <span>Sloops: <b id="meta-sloops" style="color: #c084fc;">-</b></span>
       <span>Spheres: <b id="meta-spheres" style="color: #f472b6;">-</b></span>
     </div>
-    <button class="btn-refresh" id="btn-refresh" onclick="loadWorldData()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <!-- Saves Dropdown -->
+      <select id="save-select" onchange="onSaveSelectChange(this.value)" style="background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); font-size: 11px; padding: 6px 10px; border-radius: 6px; outline: none; cursor: pointer; max-width: 190px;">
+        <option value="" disabled selected>Loading saves...</option>
+      </select>
+
+      <!-- Load / Upload File Button -->
+      <button class="btn-refresh" onclick="document.getElementById('save-file-input').click()" title="Load another save file from your PC">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Load Save
+      </button>
+      <input type="file" id="save-file-input" accept=".sav" style="display: none;" onchange="handleSaveFileInput(event)">
+
+      <button class="btn-refresh" id="btn-refresh" onclick="loadWorldData()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Drag and Drop Overlay -->
+  <div id="drop-overlay" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(18, 20, 24, 0.9); backdrop-filter: blur(12px); flex-direction: column; align-items: center; justify-content: center; pointer-events: none; border: 3px dashed var(--accent-orange);">
+    <div style="background: var(--bg-panel); border: 1px solid var(--border); padding: 36px 54px; border-radius: 16px; text-align: center; box-shadow: 0 16px 50px rgba(0,0,0,0.8);">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="2" style="margin-bottom: 16px;">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
       </svg>
-      Refresh
-    </button>
+      <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Drop Satisfactory .sav file here</h2>
+      <p style="font-size: 13px; color: var(--text-muted);">Parses instantly and loads directly onto the interactive map</p>
+    </div>
+  </div>
+
+  <!-- Loading / Parsing Progress Banner -->
+  <div id="loading-indicator" style="display: none; position: fixed; bottom: 65px; left: 50%; transform: translateX(-50%); z-index: 2000; background: var(--bg-panel); border: 1px solid var(--accent-orange); color: var(--text-main); padding: 10px 22px; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.7); font-size: 13px; font-weight: 600; align-items: center; gap: 12px;">
+    <div style="width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent-orange); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+    <span id="loading-text">Processing save file...</span>
   </div>
 
   <!-- Sidebar Filter Panel -->
@@ -701,14 +742,30 @@
       document.getElementById('hud-zoom').innerText = map.getZoom().toFixed(2);
     });
 
+    function showLoading(msg) {
+      const el = document.getElementById('loading-indicator');
+      const txt = document.getElementById('loading-text');
+      if (txt) txt.innerText = msg || 'Processing save file...';
+      if (el) el.style.display = 'flex';
+    }
+
+    function hideLoading() {
+      const el = document.getElementById('loading-indicator');
+      if (el) el.style.display = 'none';
+    }
+
     async function loadWorldData() {
+      showLoading('Loading world data...');
       try {
         const res = await fetch('/api/world');
         if (!res.ok) throw new Error('API returned ' + res.status);
         worldData = await res.json();
         renderWorld(worldData);
+        await fetchSavesList();
       } catch (err) {
         console.error('Failed to load world snapshot:', err);
+      } finally {
+        hideLoading();
       }
     }
 
@@ -1149,9 +1206,135 @@
       }
     }
 
+    // Save Management & Switching
+    async function fetchSavesList() {
+      try {
+        const res = await fetch('/api/saves');
+        if (!res.ok) return;
+        const saves = await res.json();
+        const select = document.getElementById('save-select');
+        if (!select) return;
+
+        select.innerHTML = '';
+        if (saves.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.text = 'No saves found';
+          select.appendChild(opt);
+        } else {
+          for (const s of saves) {
+            const opt = document.createElement('option');
+            opt.value = s.filename;
+            opt.text = s.filename + (s.is_active ? ' ★' : '');
+            if (s.is_active) opt.selected = true;
+            select.appendChild(opt);
+          }
+        }
+
+        const uploadOpt = document.createElement('option');
+        uploadOpt.value = '__upload__';
+        uploadOpt.text = '➕ Load other save file...';
+        select.appendChild(uploadOpt);
+      } catch (err) {
+        console.error('Failed to fetch saves list:', err);
+      }
+    }
+
+    async function onSaveSelectChange(val) {
+      if (val === '__upload__') {
+        document.getElementById('save-file-input').click();
+        fetchSavesList();
+        return;
+      }
+      if (!val) return;
+      await loadSpecificSave(val);
+    }
+
+    async function loadSpecificSave(filename) {
+      showLoading(`Loading save: ${filename}...`);
+      try {
+        const res = await fetch(`/api/load?filename=${encodeURIComponent(filename)}`, { method: 'POST' });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || 'Failed loading save');
+        }
+        worldData = await res.json();
+        renderWorld(worldData);
+        await fetchSavesList();
+      } catch (err) {
+        alert('Error loading save: ' + err.message);
+        console.error(err);
+      } finally {
+        hideLoading();
+      }
+    }
+
+    async function uploadSaveFile(file) {
+      if (!file) return;
+      showLoading(`Uploading & parsing: ${file.name}...`);
+      try {
+        const buffer = await file.arrayBuffer();
+        const res = await fetch(`/api/upload?filename=${encodeURIComponent(file.name)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: buffer
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || 'Failed parsing uploaded save');
+        }
+        worldData = await res.json();
+        renderWorld(worldData);
+        await fetchSavesList();
+      } catch (err) {
+        alert('Error parsing uploaded save: ' + err.message);
+        console.error(err);
+      } finally {
+        hideLoading();
+      }
+    }
+
+    function handleSaveFileInput(e) {
+      const file = e.target.files[0];
+      if (file) {
+        uploadSaveFile(file);
+      }
+      e.target.value = '';
+    }
+
+    // Window Drag & Drop handlers
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const overlay = document.getElementById('drop-overlay');
+      if (overlay) overlay.style.display = 'flex';
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget === null || e.clientX === 0 || e.clientY === 0) {
+        const overlay = document.getElementById('drop-overlay');
+        if (overlay) overlay.style.display = 'none';
+      }
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const overlay = document.getElementById('drop-overlay');
+      if (overlay) overlay.style.display = 'none';
+
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.name.toLowerCase().endsWith('.sav')) {
+          uploadSaveFile(file);
+        } else {
+          alert('Please drop a Satisfactory save file ending in .sav');
+        }
+      }
+    });
+
     // Auto-load on page load
     window.addEventListener('DOMContentLoaded', () => {
       loadWorldData();
+      fetchSavesList();
     });
   </script>
 </body>

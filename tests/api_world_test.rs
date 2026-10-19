@@ -57,6 +57,33 @@ async fn test_api_world_endpoint() {
     // Validate PNG signature: \x89PNG\r\n\x1a\n
     assert_eq!(&landmass_bytes[..8], b"\x89PNG\r\n\x1a\n");
 
+    // 2c. Test GET /api/saves
+    let saves_req = Request::builder()
+        .uri("/api/saves")
+        .method("GET")
+        .body(Body::empty())
+        .unwrap();
+
+    let saves_res = app.clone().oneshot(saves_req).await.unwrap();
+    assert_eq!(saves_res.status(), StatusCode::OK);
+    let saves_bytes = axum::body::to_bytes(saves_res.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let saves: Vec<sat_rwg_map::server::SaveEntry> = serde_json::from_slice(&saves_bytes).unwrap();
+    assert!(!saves.is_empty(), "Expected at least one save file in samples/");
+    assert!(saves.iter().any(|s| s.filename.ends_with(".sav")));
+
+    // 2d. Test POST /api/load
+    let safe_encoded = saves[0].filename.replace(' ', "%20");
+    let load_req = Request::builder()
+        .uri(format!("/api/load?filename={}", safe_encoded))
+        .method("POST")
+        .body(Body::empty())
+        .unwrap();
+
+    let load_res = app.clone().oneshot(load_req).await.unwrap();
+    assert_eq!(load_res.status(), StatusCode::OK);
+
     // 3. Test GET /api/world
     println!("Requesting GET /api/world...");
     let world_req = Request::builder()
