@@ -128,7 +128,16 @@ pub struct ParsedActor {
     pub properties: HashMap<String, PropertyValue>,
 }
 
-/// Summary of a resource node (`BP_ResourceNode_C`).
+/// Summary of an artifact or collectible (Somersloop or Mercer Sphere).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtifactSummary {
+    pub instance_name: String,
+    pub type_path: String,
+    pub transform: Transform,
+    pub artifact_type: String, // "Somersloop" or "MercerSphere"
+}
+
+/// Summary of a resource node (`BP_ResourceNode_C`, Geysers, Resource Wells, Mod Nodes).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceNodeSummary {
     pub instance_name: String,
@@ -136,6 +145,10 @@ pub struct ResourceNodeSummary {
     pub purity: Option<String>,
     pub resource_class: Option<String>,
     pub resource_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_type: Option<String>, // "Standard", "Geyser", "ResourceWellCore", "ResourceWellSatellite"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mod_source: Option<String>, // "Vanilla", "RefinedPower", "SatisfactoryPlus"
 }
 
 /// Summary of a resource deposit (`BP_ResourceDeposit_C`).
@@ -182,6 +195,10 @@ pub struct RwgActorsSummary {
     pub resource_deposits: Vec<ResourceDepositSummary>,
     pub drop_pods: Vec<DropPodSummary>,
     pub player_structures: Vec<PlayerStructureSummary>,
+    #[serde(default)]
+    pub somersloops: Vec<ArtifactSummary>,
+    #[serde(default)]
+    pub mercer_spheres: Vec<ArtifactSummary>,
 }
 
 /// 2D/3D spatial bounds of the world.
@@ -224,8 +241,12 @@ pub struct WorldSnapshot {
     pub resource_deposits: Vec<ResourceDepositSummary>,
     pub drop_pods: Vec<DropPodSummary>,
     pub player_structures: Vec<PlayerStructureSummary>,
+    pub somersloops: Vec<ArtifactSummary>,
+    pub mercer_spheres: Vec<ArtifactSummary>,
     pub total_nodes: usize,
     pub total_drop_pods: usize,
+    pub total_somersloops: usize,
+    pub total_mercer_spheres: usize,
 }
 
 impl RwgActorsSummary {
@@ -255,6 +276,12 @@ impl RwgActorsSummary {
         }
         for pod in &self.drop_pods {
             update_bounds(&pod.transform.translation);
+        }
+        for s in &self.somersloops {
+            update_bounds(&s.transform.translation);
+        }
+        for m in &self.mercer_spheres {
+            update_bounds(&m.transform.translation);
         }
         if let Some(ref p) = self.player {
             update_bounds(&p.transform.translation);
@@ -287,8 +314,12 @@ impl RwgActorsSummary {
             resource_deposits: self.resource_deposits.clone(),
             drop_pods: self.drop_pods.clone(),
             player_structures: self.player_structures.clone(),
+            somersloops: self.somersloops.clone(),
+            mercer_spheres: self.mercer_spheres.clone(),
             total_nodes: self.resource_nodes.len(),
             total_drop_pods: self.drop_pods.len(),
+            total_somersloops: self.somersloops.len(),
+            total_mercer_spheres: self.mercer_spheres.len(),
         }
     }
 }

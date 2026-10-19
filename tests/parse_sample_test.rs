@@ -58,10 +58,23 @@ fn test_parse_sample_save() {
     println!("Resource Deposits: {}", summary.resource_deposits.len());
     println!("Drop Pods: {}", summary.drop_pods.len());
     println!("Player Structures: {}", summary.player_structures.len());
+    println!("Somersloops: {}", summary.somersloops.len());
+    println!("Mercer Spheres: {}", summary.mercer_spheres.len());
 
     assert!(summary.resource_nodes.len() > 1000, "Expected > 1000 resource nodes");
     assert!(summary.resource_deposits.len() > 5000, "Expected > 5000 resource deposits");
     assert!(summary.drop_pods.len() > 200, "Expected > 200 drop pods");
+    assert_eq!(summary.somersloops.len(), 261, "Expected 261 Somersloops (BP_WAT1)");
+    assert_eq!(summary.mercer_spheres.len(), 733, "Expected 733 Mercer Spheres (BP_WAT2)");
+
+    // Verify Refined Power nodes are identified
+    let rp_nodes: Vec<_> = summary
+        .resource_nodes
+        .iter()
+        .filter(|n| n.mod_source.as_deref() == Some("RefinedPower"))
+        .collect();
+    println!("Refined Power nodes detected: {}", rp_nodes.len());
+    assert!(!rp_nodes.is_empty(), "Expected Refined Power nodes to be detected");
 
     // Verify some sample node data
     let sample_node = &summary.resource_nodes[0];
@@ -81,3 +94,5 @@ fn test_parse_sample_save() {
         fs::metadata(json_output_path).unwrap().len()
     );
 }
+
+

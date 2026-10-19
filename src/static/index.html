@@ -378,6 +378,51 @@
       color: var(--text-muted);
       margin-top: 4px;
     }
+
+    /* Mod and Type Badges */
+    .mod-badge-rp {
+      background: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+      border: 1px solid rgba(46, 204, 113, 0.5);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
+
+    .mod-badge-sfplus {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.5);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
+
+    .mod-badge-geyser {
+      background: rgba(235, 77, 75, 0.2);
+      color: #ff7675;
+      border: 1px solid rgba(235, 77, 75, 0.5);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
+
+    .mod-badge-well {
+      background: rgba(0, 206, 201, 0.2);
+      color: #00cec9;
+      border: 1px solid rgba(0, 206, 201, 0.5);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
   </style>
 </head>
 <body>
@@ -395,6 +440,8 @@
       <span>Play Time: <b id="meta-time">-</b></span>
       <span>Nodes: <b id="meta-nodes">-</b></span>
       <span>Drop Pods: <b id="meta-pods">-</b></span>
+      <span>Sloops: <b id="meta-sloops" style="color: #c084fc;">-</b></span>
+      <span>Spheres: <b id="meta-spheres" style="color: #f472b6;">-</b></span>
     </div>
     <button class="btn-refresh" id="btn-refresh" onclick="loadWorldData()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -462,7 +509,27 @@
       </div>
 
       <div class="sidebar-section-title">
-        <span>Special Layers</span>
+        <span>Alien Artifacts</span>
+      </div>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-somersloops" checked onchange="toggleSpecialLayer('somersloops')">
+          <div class="filter-color-dot" style="background: #a855f7; box-shadow: 0 0 8px #a855f7;"></div>
+          <span class="filter-name">Somersloops</span>
+        </div>
+        <span class="filter-count" id="count-somersloops" style="color: #c084fc;">0</span>
+      </label>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-mercerspheres" checked onchange="toggleSpecialLayer('mercerspheres')">
+          <div class="filter-color-dot" style="background: #ec4899; box-shadow: 0 0 8px #ec4899;"></div>
+          <span class="filter-name">Mercer Spheres</span>
+        </div>
+        <span class="filter-count" id="count-mercerspheres" style="color: #f472b6;">0</span>
+      </label>
+
+      <div class="sidebar-section-title">
+        <span>Exploration & Structures</span>
       </div>
       <label class="filter-item">
         <div class="filter-left">
@@ -513,7 +580,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Color palette for Satisfactory resources
+    // Color palette for Satisfactory resources (Vanilla + SF+ + Refined Power)
     const RESOURCE_COLORS = {
       'Iron': '#d35400',
       'Copper': '#e67e22',
@@ -528,9 +595,23 @@
       'Uranium': '#2ecc71',
       'LiquidOil': '#2c3e50',
       'CrudeOil': '#2c3e50',
+      'Crude Oil': '#2c3e50',
       'NitrogenGas': '#3867d6',
+      'Nitrogen Gas': '#3867d6',
       'Water': '#0abde3',
       'SAM': '#9b59b6',
+      'Thorium': '#a55eea',
+      'Geothermal': '#eb3b5a',
+      'Geyser': '#eb4d4b',
+      'Fracking': '#00cec9',
+      'Lead': '#718093',
+      'Zinc': '#4bcffa',
+      'Tin': '#d2dae2',
+      'Nickel': '#48dbfb',
+      'Silver': '#dfe4ea',
+      'Platinum': '#f5cd79',
+      'Salt': '#f1f2f6',
+      'Biomass': '#10ac84',
       'Default': '#95a5a6'
     };
 
@@ -567,6 +648,8 @@
     // Layer groups
     const layerGroups = {
       player: L.layerGroup().addTo(map),
+      somersloops: L.layerGroup().addTo(map),
+      mercerSpheres: L.layerGroup().addTo(map),
       dropPods: L.layerGroup().addTo(map),
       deposits: L.layerGroup(),
       nodesByCategory: {}
@@ -620,8 +703,17 @@
       document.getElementById('count-droppods').innerText = data.total_drop_pods;
       document.getElementById('count-deposits').innerText = data.resource_deposits ? data.resource_deposits.length : 0;
 
+      const sloopsCount = data.total_somersloops || (data.somersloops ? data.somersloops.length : 0);
+      const spheresCount = data.total_mercer_spheres || (data.mercer_spheres ? data.mercer_spheres.length : 0);
+      document.getElementById('meta-sloops').innerText = sloopsCount;
+      document.getElementById('meta-spheres').innerText = spheresCount;
+      document.getElementById('count-somersloops').innerText = sloopsCount;
+      document.getElementById('count-mercerspheres').innerText = spheresCount;
+
       // Clear existing layers
       layerGroups.player.clearLayers();
+      layerGroups.somersloops.clearLayers();
+      layerGroups.mercerSpheres.clearLayers();
       layerGroups.dropPods.clearLayers();
       layerGroups.deposits.clearLayers();
       for (const group of Object.values(layerGroups.nodesByCategory)) {
@@ -657,7 +749,61 @@
         layerGroups.player.addLayer(playerMarker);
       }
 
-      // 2. Render Drop Pods
+      // 2. Render Somersloops (BP_WAT1)
+      if (data.somersloops) {
+        for (const s of data.somersloops) {
+          const [sx, sy, sz] = s.transform.translation;
+          const latLng = ueToLatLng(sx, sy);
+
+          const marker = L.circleMarker(latLng, {
+            radius: 5,
+            color: '#f3e8ff',
+            fillColor: '#a855f7',
+            fillOpacity: 0.95,
+            weight: 1.5
+          }).bindTooltip(`
+            <div class="custom-tooltip">
+              <div class="tooltip-title" style="color: #c084fc;">
+                <span>🟣 Somersloop</span>
+                <span class="mod-badge-sfplus">Artifact</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted);">Alien Flora / Power Augmentation</div>
+              <div class="tooltip-coords">X: ${sx.toFixed(0)}, Y: ${sy.toFixed(0)}, Z: ${sz.toFixed(0)}</div>
+            </div>
+          `, { direction: 'top', className: 'custom-tooltip' });
+
+          layerGroups.somersloops.addLayer(marker);
+        }
+      }
+
+      // 3. Render Mercer Spheres (BP_WAT2)
+      if (data.mercer_spheres) {
+        for (const m of data.mercer_spheres) {
+          const [mx, my, mz] = m.transform.translation;
+          const latLng = ueToLatLng(mx, my);
+
+          const marker = L.circleMarker(latLng, {
+            radius: 5,
+            color: '#fdf2f8',
+            fillColor: '#ec4899',
+            fillOpacity: 0.95,
+            weight: 1.5
+          }).bindTooltip(`
+            <div class="custom-tooltip">
+              <div class="tooltip-title" style="color: #f472b6;">
+                <span>🔮 Mercer Sphere</span>
+                <span class="mod-badge-sfplus" style="color: #f472b6; border-color: rgba(236,72,153,0.5); background: rgba(236,72,153,0.2);">Artifact</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted);">Alien Construct / Dimensional Depot</div>
+              <div class="tooltip-coords">X: ${mx.toFixed(0)}, Y: ${my.toFixed(0)}, Z: ${mz.toFixed(0)}</div>
+            </div>
+          `, { direction: 'top', className: 'custom-tooltip' });
+
+          layerGroups.mercerSpheres.addLayer(marker);
+        }
+      }
+
+      // 4. Render Drop Pods
       if (data.drop_pods) {
         for (const pod of data.drop_pods) {
           const [dx, dy, dz] = pod.transform.translation;
@@ -681,8 +827,9 @@
         }
       }
 
-      // 3. Render Resource Nodes (grouped by resource name)
+      // 5. Render Resource Nodes (grouped by resource name)
       const nodeCounts = {};
+      const nodeModSources = {};
       layerGroups.nodesByCategory = {};
 
       if (data.resource_nodes) {
@@ -693,6 +840,7 @@
           if (!layerGroups.nodesByCategory[rawName]) {
             layerGroups.nodesByCategory[rawName] = L.layerGroup().addTo(map);
             nodeCounts[rawName] = 0;
+            nodeModSources[rawName] = node.mod_source || (node.node_type ? node.node_type : 'Vanilla');
           }
           nodeCounts[rawName]++;
 
@@ -701,6 +849,19 @@
 
           const purity = (node.purity || '').replace('RP_', '');
           const purityClass = purity ? `purity-${purity.toLowerCase()}` : '';
+
+          let badgeHtml = '';
+          if (node.mod_source === 'RefinedPower') {
+            badgeHtml += '<span class="mod-badge-rp">Refined Power</span>';
+          } else if (node.mod_source === 'SatisfactoryPlus') {
+            badgeHtml += '<span class="mod-badge-sfplus">Satisfactory+</span>';
+          }
+
+          if (node.node_type === 'Geyser') {
+            badgeHtml += '<span class="mod-badge-geyser">Geyser</span>';
+          } else if (node.node_type === 'ResourceWellCore' || node.node_type === 'ResourceWellSatellite') {
+            badgeHtml += '<span class="mod-badge-well">Fracking Well</span>';
+          }
 
           const marker = L.circleMarker(latLng, {
             radius: purity === 'Pure' ? 6 : (purity === 'Normal' ? 4.5 : 3.5),
@@ -712,7 +873,8 @@
             <div class="custom-tooltip">
               <div class="tooltip-title">
                 <span style="color: ${rColor};">●</span>
-                <span>${rawName} Node</span>
+                <span>${rawName}</span>
+                ${badgeHtml}
                 ${purity ? `<span class="tooltip-purity ${purityClass}">${purity}</span>` : ''}
               </div>
               <div class="tooltip-coords">X: ${nx.toFixed(0)}, Y: ${ny.toFixed(0)}, Z: ${nz.toFixed(0)}</div>
@@ -723,7 +885,7 @@
         }
       }
 
-      // 4. Render Resource Deposits (optional layer)
+      // 6. Render Resource Deposits (optional layer)
       if (data.resource_deposits) {
         for (const dep of data.resource_deposits) {
           const [dx, dy] = dep.transform.translation;
@@ -741,13 +903,13 @@
         }
       }
 
-      // 5. Populate Sidebar Filter List
-      populateNodeFilters(nodeCounts);
+      // 7. Populate Sidebar Filter List
+      populateNodeFilters(nodeCounts, nodeModSources);
 
       // Sync Landmass Scale to the World Size
       updateScaleFromData(data);
 
-      // 6. Center and Fit map to World Bounds
+      // 8. Center and Fit map to World Bounds
       if (data.world_bounds) {
         const b = data.world_bounds;
         const southWest = ueToLatLng(b.min_x, b.min_y);
@@ -756,7 +918,7 @@
       }
     }
 
-    function populateNodeFilters(counts) {
+    function populateNodeFilters(counts, modSources) {
       const listEl = document.getElementById('nodes-filter-list');
       listEl.innerHTML = '';
 
@@ -765,6 +927,18 @@
       for (const name of sortedCategories) {
         const color = getResourceColor(name);
         const count = counts[name];
+        const modSource = modSources ? modSources[name] : null;
+
+        let badgeTag = '';
+        if (modSource === 'RefinedPower') {
+          badgeTag = '<span class="mod-badge-rp">RP</span>';
+        } else if (modSource === 'SatisfactoryPlus') {
+          badgeTag = '<span class="mod-badge-sfplus">SF+</span>';
+        } else if (modSource === 'Geyser') {
+          badgeTag = '<span class="mod-badge-geyser">Geyser</span>';
+        } else if (modSource && modSource.includes('Fracking')) {
+          badgeTag = '<span class="mod-badge-well">Well</span>';
+        }
 
         const item = document.createElement('label');
         item.className = 'filter-item';
@@ -774,6 +948,7 @@
             <input type="checkbox" id="filter-${name}" checked onchange="toggleCategoryLayer('${name}')">
             <div class="filter-color-dot" style="background: ${color};"></div>
             <span class="filter-name">${name}</span>
+            ${badgeTag}
           </div>
           <span class="filter-count">${count}</span>
         `;
@@ -885,6 +1060,14 @@
         const chk = document.getElementById('layer-player');
         if (chk.checked) map.addLayer(layerGroups.player);
         else map.removeLayer(layerGroups.player);
+      } else if (type === 'somersloops') {
+        const chk = document.getElementById('layer-somersloops');
+        if (chk.checked) map.addLayer(layerGroups.somersloops);
+        else map.removeLayer(layerGroups.somersloops);
+      } else if (type === 'mercerspheres') {
+        const chk = document.getElementById('layer-mercerspheres');
+        if (chk.checked) map.addLayer(layerGroups.mercerSpheres);
+        else map.removeLayer(layerGroups.mercerSpheres);
       } else if (type === 'droppods') {
         const chk = document.getElementById('layer-droppods');
         if (chk.checked) map.addLayer(layerGroups.dropPods);

@@ -909,6 +909,8 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
     let mut resource_deposits = Vec::new();
     let mut drop_pods = Vec::new();
     let mut player_structures = Vec::new();
+    let mut somersloops = Vec::new();
+    let mut mercer_spheres = Vec::new();
     let mut world_seed = None;
     let mut world_size_meters = None;
 
@@ -943,19 +945,76 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                 });
             }
 
-            // Resource nodes
-            if path.contains("BP_ResourceNode") && !path.contains("Geyser") {
-                let purity = actor.properties.get("mPurityOverride").and_then(|v| {
-                    if let PropertyValue::ByteEnum { value, .. } = v {
-                        Some(value.clone())
-                    } else {
-                        None
-                    }
+            // Somersloops (Artifact WAT1)
+            if path.contains("BP_WAT1") {
+                somersloops.push(ArtifactSummary {
+                    instance_name: actor.instance_name.clone(),
+                    type_path: actor.type_path.clone(),
+                    transform: actor.transform,
+                    artifact_type: "Somersloop".to_string(),
                 });
+            } else if path.contains("BP_WAT2") {
+                // Mercer Spheres (Artifact WAT2)
+                mercer_spheres.push(ArtifactSummary {
+                    instance_name: actor.instance_name.clone(),
+                    type_path: actor.type_path.clone(),
+                    transform: actor.transform,
+                    artifact_type: "MercerSphere".to_string(),
+                });
+            } else if path.contains("BP_ResourceNodeGeyser") {
+                // Geysers
+                let purity = actor
+                    .properties
+                    .get("mPurityOverride")
+                    .or_else(|| actor.properties.get("mPurity"))
+                    .and_then(|v| match v {
+                        PropertyValue::ByteEnum { value, .. } => Some(clean_purity(value)),
+                        PropertyValue::Str(s) => Some(clean_purity(s)),
+                        _ => None,
+                    });
 
                 let res_class = actor
                     .properties
                     .get("mResourceClassOverride")
+                    .or_else(|| actor.properties.get("mResourceClass"))
+                    .and_then(|v| {
+                        if let PropertyValue::ObjectRef(r) = v {
+                            Some(r.path_name.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .or_else(|| Some("/Game/FactoryGame/Resource/RawResources/Geyser/Desc_Geyser.Desc_Geyser_C".to_string()));
+
+                let res_name = res_class.as_deref().map(extract_clean_name).or(Some("Geyser".to_string()));
+                let mod_source = detect_mod_source(path, res_class.as_deref());
+
+                resource_nodes.push(ResourceNodeSummary {
+                    instance_name: actor.instance_name.clone(),
+                    transform: actor.transform,
+                    purity,
+                    resource_class: res_class,
+                    resource_name: res_name,
+                    node_type: Some("Geyser".to_string()),
+                    mod_source: Some(mod_source),
+                });
+            } else if path.contains("BP_FrackingCore") || path.contains("BP_FrackingSatellite") {
+                // Resource Wells / Fracking Satellites
+                let is_core = path.contains("BP_FrackingCore");
+                let purity = actor
+                    .properties
+                    .get("mPurityOverride")
+                    .or_else(|| actor.properties.get("mPurity"))
+                    .and_then(|v| match v {
+                        PropertyValue::ByteEnum { value, .. } => Some(clean_purity(value)),
+                        PropertyValue::Str(s) => Some(clean_purity(s)),
+                        _ => None,
+                    });
+
+                let res_class = actor
+                    .properties
+                    .get("mResourceClassOverride")
+                    .or_else(|| actor.properties.get("mResourceClass"))
                     .and_then(|v| {
                         if let PropertyValue::ObjectRef(r) = v {
                             Some(r.path_name.clone())
@@ -965,6 +1024,7 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     });
 
                 let res_name = res_class.as_deref().map(extract_clean_name);
+                let mod_source = detect_mod_source(path, res_class.as_deref());
 
                 resource_nodes.push(ResourceNodeSummary {
                     instance_name: actor.instance_name.clone(),
@@ -972,11 +1032,50 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     purity,
                     resource_class: res_class,
                     resource_name: res_name,
+                    node_type: Some(if is_core { "ResourceWellCore".to_string() } else { "ResourceWellSatellite".to_string() }),
+                    mod_source: Some(mod_source),
+                });
+            } else if path.contains("ResourceNode") {
+                // Standard and modded resource nodes (Refined Power Thorium, Satisfactory Plus ores, etc.)
+                let purity = actor
+                    .properties
+                    .get("mPurityOverride")
+                    .or_else(|| actor.properties.get("mPurity"))
+                    .and_then(|v| match v {
+                        PropertyValue::ByteEnum { value, .. } => Some(clean_purity(value)),
+                        PropertyValue::Str(s) => Some(clean_purity(s)),
+                        _ => None,
+                    });
+
+                let res_class = actor
+                    .properties
+                    .get("mResourceClassOverride")
+                    .or_else(|| actor.properties.get("mResourceClass"))
+                    .and_then(|v| {
+                        if let PropertyValue::ObjectRef(r) = v {
+                            Some(r.path_name.clone())
+                        } else {
+                            None
+                        }
+                    });
+
+                let res_name = res_class.as_deref().map(extract_clean_name);
+                let mod_source = detect_mod_source(path, res_class.as_deref());
+
+                resource_nodes.push(ResourceNodeSummary {
+                    instance_name: actor.instance_name.clone(),
+                    transform: actor.transform,
+                    purity,
+                    resource_class: res_class,
+                    resource_name: res_name,
+                    node_type: Some("Standard".to_string()),
+                    mod_source: Some(mod_source),
                 });
             } else if path.contains("BP_ResourceDeposit") {
                 let res_class = actor
                     .properties
                     .get("mResourceClassOverride")
+                    .or_else(|| actor.properties.get("mResourceClass"))
                     .and_then(|v| {
                         if let PropertyValue::ObjectRef(r) = v {
                             Some(r.path_name.clone())
@@ -1025,13 +1124,71 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
         resource_deposits,
         drop_pods,
         player_structures,
+        somersloops,
+        mercer_spheres,
+    }
+}
+
+/// Helper to standardize purity strings.
+pub fn clean_purity(val: &str) -> String {
+    match val {
+        "RP_Inpure" | "Inpure" | "Impure" => "Impure".to_string(),
+        "RP_Normal" | "Normal" => "Normal".to_string(),
+        "RP_Pure" | "Pure" => "Pure".to_string(),
+        other => other.strip_prefix("RP_").unwrap_or(other).to_string(),
+    }
+}
+
+/// Detects whether an actor or resource comes from Refined Power, Satisfactory Plus, or Vanilla.
+pub fn detect_mod_source(actor_path: &str, res_class: Option<&str>) -> String {
+    let combined = format!("{} {}", actor_path, res_class.unwrap_or(""));
+    if combined.contains("RefinedPower") || combined.contains("RP_") || combined.contains("RefinedRD") {
+        "RefinedPower".to_string()
+    } else if combined.contains("SatisfactoryPlus") || combined.contains("SFPlus") || combined.contains("/Kits/") {
+        "SatisfactoryPlus".to_string()
+    } else {
+        "Vanilla".to_string()
     }
 }
 
 /// Helper to get a human-friendly item/resource name from a path.
-fn extract_clean_name(path: &str) -> String {
+pub fn extract_clean_name(path: &str) -> String {
     let name = path.rsplit('.').next().unwrap_or(path);
     let name = name.strip_prefix("Desc_").unwrap_or(name);
     let name = name.strip_suffix("_C").unwrap_or(name);
-    name.to_string()
+
+    match name {
+        "OreIron" | "Iron" => "Iron".to_string(),
+        "OreCopper" | "Copper" => "Copper".to_string(),
+        "OreBauxite" | "Bauxite" => "Bauxite".to_string(),
+        "OreGold" | "Gold" => "Caterium".to_string(),
+        "OreUranium" | "Uranium" => "Uranium".to_string(),
+        "Stone" => "Limestone".to_string(),
+        "Coal" => "Coal".to_string(),
+        "RawQuartz" => "Raw Quartz".to_string(),
+        "Sulfur" => "Sulfur".to_string(),
+        "SAM" => "SAM".to_string(),
+        "LiquidOil" | "CrudeOil" => "Crude Oil".to_string(),
+        "Water" => "Water".to_string(),
+        "NitrogenGas" => "Nitrogen Gas".to_string(),
+        "Geyser" => "Geyser".to_string(),
+        // Refined Power
+        "RP_Thorium" | "Thorium" => "Thorium".to_string(),
+        "RP_Geothermal" => "Geothermal".to_string(),
+        "RP_HighYieldWater" => "High Yield Water".to_string(),
+        // Satisfactory Plus
+        "OreLead" | "Lead" => "Lead".to_string(),
+        "OreZinc" | "Zinc" => "Zinc".to_string(),
+        "OreSilver" | "Silver" => "Silver".to_string(),
+        "OreTin" | "Tin" => "Tin".to_string(),
+        "OreNickel" | "Nickel" => "Nickel".to_string(),
+        "OrePlatinum" | "Platinum" => "Platinum".to_string(),
+        "Salt" | "RockSalt" => "Rock Salt".to_string(),
+        "Biomass" => "Biomass".to_string(),
+        other => {
+            let clean = other.strip_prefix("RP_").unwrap_or(other);
+            let clean = clean.strip_prefix("Ore").unwrap_or(clean);
+            clean.to_string()
+        }
+    }
 }

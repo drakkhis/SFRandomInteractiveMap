@@ -61,6 +61,8 @@ pub struct ApiStatus {
     pub world_seed: Option<i32>,
     pub world_size_meters: Option<f64>,
     pub total_nodes: Option<usize>,
+    pub total_somersloops: Option<usize>,
+    pub total_mercer_spheres: Option<usize>,
 }
 
 /// Handler for GET /api/status.
@@ -72,15 +74,17 @@ pub async fn status_handler(State(state): State<AppState>) -> impl IntoResponse 
         .map(|f| f.to_string_lossy().to_string());
 
     let cached = state.cache.read().await;
-    let (session_name, world_seed, world_size_meters, total_nodes) = if let Some((_, ref snap)) = *cached {
+    let (session_name, world_seed, world_size_meters, total_nodes, total_somersloops, total_mercer_spheres) = if let Some((_, ref snap)) = *cached {
         (
             Some(snap.session_name.clone()),
             snap.world_seed,
             snap.world_size_meters,
             Some(snap.total_nodes),
+            Some(snap.total_somersloops),
+            Some(snap.total_mercer_spheres),
         )
     } else {
-        (None, None, None, None)
+        (None, None, None, None, None, None)
     };
 
     Json(ApiStatus {
@@ -90,6 +94,8 @@ pub async fn status_handler(State(state): State<AppState>) -> impl IntoResponse 
         world_seed,
         world_size_meters,
         total_nodes,
+        total_somersloops,
+        total_mercer_spheres,
     })
 }
 

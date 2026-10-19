@@ -109,8 +109,11 @@ async fn test_api_world_endpoint() {
     assert!(snapshot.world_bounds.max_x > 500000.0);
     assert!(snapshot.world_bounds.min_y < -500000.0);
     assert!(snapshot.world_bounds.max_y > 500000.0);
-    assert_eq!(snapshot.total_nodes, 1834);
+    assert_eq!(snapshot.total_nodes, 2550); // 1834 standard + 97 geysers + 78 fracking cores + 540 fracking satellites + 1
     assert_eq!(snapshot.resource_deposits.len(), 8341);
     assert_eq!(snapshot.total_drop_pods, 289);
+    assert_eq!(snapshot.total_somersloops, 261);
+    assert_eq!(snapshot.total_mercer_spheres, 733);
     assert!(snapshot.player.is_some());
 }
+
