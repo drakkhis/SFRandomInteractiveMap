@@ -2,6 +2,8 @@
 name = "sat-rwg-map"
 version = "0.1.0"
 edition = "2021"
+authors = ["Dragon Forge Creations"]
+description = "Satisfactory RWG Interactive Map & Save Server"
 
 [dependencies]
 byteorder = "1.5"
