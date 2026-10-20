@@ -63,6 +63,7 @@ async fn main() -> Result<()> {
 
     // Default mode: Axum Web Server (Milestone 2)
     let samples_dir = PathBuf::from("samples");
+    let _ = fs::create_dir_all(&samples_dir);
     let state = AppState::new(&samples_dir);
     let app = create_app(state);
 
@@ -74,10 +75,19 @@ async fn main() -> Result<()> {
     println!("Endpoints:");
     println!("  GET http://{}/api/status", addr);
     println!("  GET http://{}/api/world", addr);
+    println!("  GET http://{}/api/map.png", addr);
     println!("=======================================================");
 
     let listener = tokio::net::TcpListener::bind(addr).await
         .with_context(|| format!("Failed to bind server to {}", addr))?;
+
+    // Auto-open the browser unless --no-browser is passed
+    if !args.iter().any(|arg| arg == "--no-browser") {
+        let url = format!("http://{}", addr);
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", &url])
+            .spawn();
+    }
 
     axum::serve(listener, app).await
         .context("Server execution error")?;
