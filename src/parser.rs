@@ -913,6 +913,7 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
     let mut mercer_spheres = Vec::new();
     let mut world_seed = None;
     let mut world_size_meters = None;
+    let mut extracted_sfplus_nodes = std::collections::HashSet::new();
 
     for level in &parsed_save.levels {
         for header in &level.headers {
@@ -1125,6 +1126,57 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     type_path: actor.type_path.clone(),
                     transform: actor.transform,
                 });
+
+                // On standard maps, Satisfactory Plus spawns nodes in an unserialized sublevel (SatifactoryPlusWorld).
+                // Recover any active SF+ nodes referenced by player extractors via `mExtractableResource`.
+                if let Some(PropertyValue::ObjectRef(target_ref)) = actor.properties.get("mExtractableResource") {
+                    let target_path = &target_ref.path_name;
+                    if target_path.contains("SatifactoryPlusWorld")
+                        && extracted_sfplus_nodes.insert(target_path.clone())
+                    {
+                        let (res_class, res_name, node_type) = if target_path.contains("Node_BioWater") {
+                            (
+                                Some("/KLib/Assets/Ressources/Raw/Ores/Fluids/BioWater/Res_LiquidBioWater.Res_LiquidBioWater_C".to_string()),
+                                Some("Bio Water (Algae)".to_string()),
+                                "Standard",
+                            )
+                        } else if target_path.contains("QuantumCrystal") || target_path.contains("KerrCrystal") {
+                            (
+                                Some("/KLib/Assets/Ressources/Raw/Nodes/QuantumCystal/Res_KerrCrystal.Res_KerrCrystal_C".to_string()),
+                                Some("Kerr Crystal".to_string()),
+                                "Standard",
+                            )
+                        } else if target_path.contains("FrackingCore") {
+                            (
+                                Some("/KLib/Assets/Ressources/Raw/Gas/Desc_Gas_Chlor.Desc_Gas_Chlor_C".to_string()),
+                                Some("Chlorine Gas".to_string()),
+                                "ResourceWellCore",
+                            )
+                        } else if target_path.contains("FrackingSat") {
+                            (
+                                Some("/KLib/Assets/Ressources/Raw/Gas/Desc_Gas_Chlor.Desc_Gas_Chlor_C".to_string()),
+                                Some("Chlorine Gas".to_string()),
+                                "ResourceWellSatellite",
+                            )
+                        } else {
+                            (
+                                None,
+                                Some(extract_clean_name(target_path)),
+                                "Standard",
+                            )
+                        };
+
+                        resource_nodes.push(ResourceNodeSummary {
+                            instance_name: target_path.clone(),
+                            transform: actor.transform,
+                            purity: Some("Normal".to_string()),
+                            resource_class: res_class,
+                            resource_name: res_name,
+                            node_type: Some(node_type.to_string()),
+                            mod_source: Some("SatisfactoryPlus".to_string()),
+                        });
+                    }
+                }
             }
         }
     }

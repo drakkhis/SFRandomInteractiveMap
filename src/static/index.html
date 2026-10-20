@@ -1146,7 +1146,35 @@
       }
     }
 
+    function applyExplicitLandmassBounds(bounds) {
+      activeLandmassBounds = bounds;
+      if (landmassLayer) {
+        landmassLayer.setBounds(activeLandmassBounds);
+        if (map.hasLayer(landmassLayer)) {
+          landmassLayer.bringToBack();
+        }
+      }
+    }
+
     function updateScaleFromData(data) {
+      // Standard / Vanilla map (Persistent_Level) uses SCIM world bounds:
+      // X: [-3246m, +4253m], Y: [-3750m, +3750m] -> lat=[-Y, +Y], lng=[minX, maxX]
+      const isVanillaMap = (data.map_name === 'Persistent_Level' || data.world_seed === null);
+      if (isVanillaMap && (!data.world_size_meters || data.world_size_meters <= 0)) {
+        const label = '7.5 km (Standard Map)';
+        const sizeEl = document.getElementById('meta-size');
+        if (sizeEl) sizeEl.innerText = label;
+
+        const descEl = document.getElementById('landmass-scale-desc');
+        if (descEl) descEl.innerText = label;
+
+        const presetSelect = document.getElementById('landmass-preset-select');
+        if (presetSelect && (presetSelect.value === 'auto' || presetSelect.value === '7112')) {
+          applyExplicitLandmassBounds([[-3750, -3246], [3750, 4253]]);
+        }
+        return;
+      }
+
       let halfExtent = 6000;
       let label = '12.0 km';
       if (data.world_size_meters && data.world_size_meters > 0) {
@@ -1193,6 +1221,10 @@
         if (worldData) {
           updateScaleFromData(worldData);
         }
+      } else if (val === '7112') {
+        customBox.style.display = 'none';
+        applyExplicitLandmassBounds([[-3750, -3246], [3750, 4253]]);
+        document.getElementById('landmass-scale-desc').innerText = '7.5 km (Standard Map)';
       } else {
         customBox.style.display = 'none';
         const sizeMeters = parseFloat(val);

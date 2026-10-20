@@ -1,8 +1,8 @@
 #pragma code_page(65001)
 
 1 VERSIONINFO
-FILEVERSION 0,1,1,0
-PRODUCTVERSION 0,1,1,0
+FILEVERSION 0,1,2,0
+PRODUCTVERSION 0,1,2,0
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS 0x40004L
@@ -15,12 +15,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Dragon Forge Creations"
             VALUE "FileDescription", "Satisfactory RWG Interactive Map & Save Server"
-            VALUE "FileVersion", "0.1.1.0"
+            VALUE "FileVersion", "0.1.2.0"
             VALUE "InternalName", "sat-rwg-map.exe"
             VALUE "LegalCopyright", "Copyright (c) 2026 Dragon Forge Creations"
             VALUE "OriginalFilename", "sat-rwg-map.exe"
             VALUE "ProductName", "Satisfactory RWG Interactive Map"
-            VALUE "ProductVersion", "0.1.1.0"
+            VALUE "ProductVersion", "0.1.2.0"
         END
     END
     BLOCK "VarFileInfo"

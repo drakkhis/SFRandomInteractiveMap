@@ -340,6 +340,7 @@ pub async fn world_handler(
 
 const INDEX_HTML: &str = include_str!("static/index.html");
 const LANDMASS_PNG: &[u8] = include_bytes!("static/landmass.png");
+const VANILLA_MAP_PNG: &[u8] = include_bytes!("static/vanilla_map.png");
 
 /// Handler for GET / returning the interactive Leaflet map frontend.
 pub async fn index_handler() -> impl IntoResponse {
@@ -347,10 +348,25 @@ pub async fn index_handler() -> impl IntoResponse {
 }
 
 /// Handler for GET /static/landmass.png and GET /api/map.png returning the dynamically
-/// generated procedural landmass PNG for the currently loaded save (or fallback static PNG).
+/// generated procedural landmass PNG for RWG saves, or the standard map PNG for Persistent_Level saves.
 pub async fn landmass_handler(State(state): State<AppState>) -> impl IntoResponse {
     let map_opt = state.generated_map_png.read().await.clone();
-    let bytes = map_opt.unwrap_or_else(|| LANDMASS_PNG.to_vec());
+    let bytes = if let Some(b) = map_opt {
+        b
+    } else {
+        let is_vanilla = {
+            let cached = state.cache.read().await;
+            cached
+                .as_ref()
+                .map(|(_, snap)| snap.map_name == "Persistent_Level" || snap.world_seed.is_none())
+                .unwrap_or(false)
+        };
+        if is_vanilla {
+            VANILLA_MAP_PNG.to_vec()
+        } else {
+            LANDMASS_PNG.to_vec()
+        }
+    };
     (
         [
             (axum::http::header::CONTENT_TYPE, "image/png"),
