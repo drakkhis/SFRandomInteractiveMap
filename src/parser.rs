@@ -1035,8 +1035,12 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     node_type: Some(if is_core { "ResourceWellCore".to_string() } else { "ResourceWellSatellite".to_string() }),
                     mod_source: Some(mod_source),
                 });
-            } else if path.contains("ResourceNode") {
-                // Standard and modded resource nodes (Refined Power Thorium, Satisfactory Plus ores, etc.)
+            } else if (path.contains("ResourceNode") && !path.contains("Subsystem"))
+                || path.contains("Node_BioWater")
+                || path.contains("WaterTurbineNode")
+                || path.contains("WaterDam")
+            {
+                // Standard and modded resource nodes (Refined Power Thorium/Water Turbine, Satisfactory Plus ores/BioWater, etc.)
                 let purity = actor
                     .properties
                     .get("mPurityOverride")
@@ -1057,9 +1061,21 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                         } else {
                             None
                         }
+                    })
+                    .or_else(|| {
+                        if path.contains("WaterTurbineNode") {
+                            Some("/RefinedPower/World/ResourceNodes/WaterTurbine/Desc_WaterTurbineNode.Desc_WaterTurbineNode_C".to_string())
+                        } else if path.contains("Node_BioWater") {
+                            Some("/KLib/Assets/Ressources/Raw/Ores/Fluids/BioWater/Res_LiquidBioWater.Res_LiquidBioWater_C".to_string())
+                        } else {
+                            None
+                        }
                     });
 
-                let res_name = res_class.as_deref().map(extract_clean_name);
+                let res_name = res_class
+                    .as_deref()
+                    .map(extract_clean_name)
+                    .or_else(|| Some(extract_clean_name(path)));
                 let mod_source = detect_mod_source(path, res_class.as_deref());
 
                 resource_nodes.push(ResourceNodeSummary {
@@ -1209,6 +1225,7 @@ pub fn extract_clean_name(path: &str) -> String {
         "Deanium" => "Deanium".to_string(),
         "Geothermal" => "Geothermal".to_string(),
         "HighYieldWater" => "High Yield Water".to_string(),
+        "WaterTurbineNode" | "BP_WaterTurbineNode" | "WaterTurbine" => "Water Turbine Node".to_string(),
         // Ficsit Farming
         "Dirt_Fertilized" | "DirtFertilized" | "FertilizedDirt" => "Fertilized Dirt".to_string(),
         "Dirt_Wet" | "DirtWet" | "WetDirt" => "Wet Dirt".to_string(),
@@ -1220,7 +1237,7 @@ pub fn extract_clean_name(path: &str) -> String {
         // Satisfactory Plus & KLib
         "Res_KerrCrystal" | "KerrCrystal" | "QuantumCrystal" => "Kerr Crystal".to_string(),
         "Gas_Chlor" | "GasChlor" | "Chlor" | "Chlorine" => "Chlorine Gas".to_string(),
-        "Res_LiquidBioWater" | "LiquidBioWater" | "BioWater" => "Bio Water".to_string(),
+        "Res_LiquidBioWater" | "LiquidBioWater" | "BioWater" | "Node_BioWaterSF+" => "Bio Water (Algae)".to_string(),
         "OreLead" | "Lead" => "Lead".to_string(),
         "OreZinc" | "Zinc" => "Zinc".to_string(),
         "OreSilver" | "Silver" => "Silver".to_string(),
@@ -1248,7 +1265,9 @@ pub fn extract_clean_name(path: &str) -> String {
             } else if lower.contains("chlor") {
                 "Chlorine Gas".to_string()
             } else if lower.contains("biowater") {
-                "Bio Water".to_string()
+                "Bio Water (Algae)".to_string()
+            } else if lower.contains("waterturbine") {
+                "Water Turbine Node".to_string()
             } else if lower.contains("deanium") {
                 "Deanium".to_string()
             } else {
