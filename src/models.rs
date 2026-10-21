@@ -201,6 +201,8 @@ pub struct RwgActorsSummary {
     pub mercer_spheres: Vec<ArtifactSummary>,
     #[serde(skip)]
     pub generated_map_png: Option<Vec<u8>>,
+    #[serde(skip)]
+    pub generated_heightmap: Option<Vec<u8>>,
 }
 
 /// 2D/3D spatial bounds of the world.

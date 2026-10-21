@@ -38,6 +38,7 @@ pub fn parse_save_bytes(raw_bytes: &[u8]) -> Result<RwgActorsSummary> {
             summary.world_size_meters = Some((map_data.world_extent_cm * 2.0) / 100.0);
         }
         summary.generated_map_png = Some(map_data.png_bytes);
+        summary.generated_heightmap = Some(map_data.heightmap_bytes);
     }
 
     Ok(summary)

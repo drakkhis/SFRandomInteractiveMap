@@ -7,10 +7,11 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Write};
 
-/// Metadata and rendered PNG image extracted from the save's embedded procedural world (`PWWE` / `PWW1`).
+/// Metadata and rendered PNG image + 3D heightmap extracted from the save's embedded procedural world (`PWWE` / `PWW1`).
 #[derive(Debug, Clone)]
 pub struct GeneratedMapData {
     pub png_bytes: Vec<u8>,
+    pub heightmap_bytes: Vec<u8>,
     pub resolution: usize,
     pub grid_cm: f64,
     pub world_extent_cm: f64,
@@ -354,8 +355,51 @@ pub fn extract_and_render_map(uncompressed_save_data: &[u8], out_size: usize) ->
 
     let png_bytes = encode_rgba_png(&rgba, out_size as u32, out_size as u32)?;
 
+    // 7. Build 512x512 compact binary heightmap (`PWHM` format) for 3D terrain modeling
+    let hm_size: usize = 512;
+    let half_m = if world_extent_cm > 0.0 {
+        (world_extent_cm / 100.0) as f32
+    } else {
+        6000.0f32
+    };
+    let mut heightmap_bytes = Vec::with_capacity(28 + hm_size * hm_size * 2);
+    heightmap_bytes.extend_from_slice(b"PWHM");
+    heightmap_bytes.extend_from_slice(&(hm_size as u32).to_le_bytes());
+    heightmap_bytes.extend_from_slice(&(hm_size as u32).to_le_bytes());
+    heightmap_bytes.extend_from_slice(&(-half_m).to_le_bytes());
+    heightmap_bytes.extend_from_slice(&half_m.to_le_bytes());
+    heightmap_bytes.extend_from_slice(&(-half_m).to_le_bytes());
+    heightmap_bytes.extend_from_slice(&half_m.to_le_bytes());
+
+    for hy in 0..hm_size {
+        let gy = (hy * resolution) / hm_size;
+        for hx in 0..hm_size {
+            let gx = (hx * resolution) / hm_size;
+            let idx = gy * resolution + gx;
+            let hole = holes_raw.get(idx).copied().unwrap_or(255);
+            let dm: i16 = if hole != 0 {
+                i16::MIN // -32768 sentinel for void / hole cutout
+            } else {
+                let h = height_grid.get(idx).copied().unwrap_or(0.0);
+                let w = water_grid.get(idx).copied().unwrap_or(f32::NAN);
+                let is_sea = sea_raw.get(idx).copied().unwrap_or(0) != 0
+                    || seawater_raw.get(idx).copied().unwrap_or(0) != 0;
+                let eff_h = if is_sea {
+                    h.max(-22.0)
+                } else if !w.is_nan() && w > -500.0 && w > h {
+                    w
+                } else {
+                    h
+                };
+                (eff_h * 10.0).round().clamp(-32760.0, 32760.0) as i16
+            };
+            heightmap_bytes.extend_from_slice(&dm.to_le_bytes());
+        }
+    }
+
     Ok(Some(GeneratedMapData {
         png_bytes,
+        heightmap_bytes,
         resolution,
         grid_cm,
         world_extent_cm,

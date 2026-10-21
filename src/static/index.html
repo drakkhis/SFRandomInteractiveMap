@@ -438,7 +438,101 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    /* 2D / 3D Mode Toggle Pill */
+    .mode-toggle-group {
+      display: inline-flex;
+      background: rgba(12, 14, 18, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .mode-toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 5px 11px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+
+    .mode-toggle-btn:hover {
+      color: var(--text-main);
+    }
+
+    .mode-toggle-btn.active {
+      background: var(--accent-orange);
+      color: #111;
+      box-shadow: 0 2px 10px rgba(250, 123, 23, 0.35);
+    }
+
+    /* 3D Viewport Container & Floating Tooltip */
+    #map-3d {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: radial-gradient(circle at 50% 35%, #19222d 0%, #0b0e13 85%);
+      overflow: hidden;
+    }
+
+    #tooltip-3d {
+      display: none;
+      position: fixed;
+      z-index: 2500;
+      pointer-events: none;
+      background: rgba(20, 24, 30, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+      transform: translate(-50%, -115%);
+      white-space: nowrap;
+    }
+
+    .controls-3d-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 352px;
+      z-index: 950;
+      background: var(--bg-panel);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: none;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+
+    .controls-3d-hint b {
+      color: var(--accent-orange);
+    }
   </style>
+  <!-- Import Map for Three.js ES Modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
 
@@ -459,6 +553,18 @@
       <span>Spheres: <b id="meta-spheres" style="color: #f472b6;">-</b></span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
+      <!-- 2D / 3D Mode Toggle -->
+      <div class="mode-toggle-group" title="Switch between 2D Top-Down Map and 3D Interactive Terrain Modeler">
+        <button class="mode-toggle-btn active" id="btn-mode-2d" onclick="setViewMode('2d')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          2D Map
+        </button>
+        <button class="mode-toggle-btn" id="btn-mode-3d" onclick="setViewMode('3d')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          3D Model
+        </button>
+      </div>
+
       <!-- Saves Dropdown -->
       <select id="save-select" onchange="onSaveSelectChange(this.value)" style="background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); font-size: 11px; padding: 6px 10px; border-radius: 6px; outline: none; cursor: pointer; max-width: 190px;">
         <option value="" disabled selected>Loading saves...</option>
@@ -581,6 +687,32 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
           Fit to Landmass
         </button>
+
+        <!-- 3D Terrain Modeler Controls (Visible when 3D Mode is active) -->
+        <div id="controls-3d-section" style="display: none; flex-direction: column; gap: 7px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--accent-orange); font-weight: 600;">
+            <span>3D Vertical Exaggeration</span>
+            <span id="vscale-3d-val">1.6x</span>
+          </div>
+          <input type="range" id="vscale-3d-slider" min="0.5" max="4.0" step="0.1" value="1.6" style="width: 100%; accent-color: var(--accent-orange); cursor: pointer;" oninput="on3dVerticalScaleChange(this.value)">
+
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+            <span>3D Node Marker Size</span>
+            <span id="nodesize-3d-val">1.0x</span>
+          </div>
+          <input type="range" id="nodesize-3d-slider" min="0.4" max="2.5" step="0.1" value="1.0" style="width: 100%; accent-color: var(--accent-cyan); cursor: pointer;" oninput="on3dNodeSizeChange(this.value)">
+
+          <div style="display: flex; gap: 8px; margin-top: 2px;">
+            <label style="flex: 1; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-main); cursor: pointer;">
+              <input type="checkbox" id="chk-3d-water" checked onchange="toggle3dWater(this.checked)" style="accent-color: var(--accent-cyan);">
+              <span>Water Plane</span>
+            </label>
+            <label style="flex: 1; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-main); cursor: pointer;">
+              <input type="checkbox" id="chk-3d-wireframe" onchange="toggle3dWireframe(this.checked)" style="accent-color: var(--accent-orange);">
+              <span>Wireframe</span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <div class="sidebar-section-title">
@@ -645,11 +777,24 @@
   <div class="coord-hud">
     <span>X: <b id="hud-x">0.0</b></span>
     <span>Y: <b id="hud-y">0.0</b></span>
+    <span id="hud-z-wrap" style="display: none;">Z (Elev): <b id="hud-z">0.0m</b></span>
     <span>Zoom: <b id="hud-zoom">1.0</b></span>
   </div>
 
-  <!-- Main Map Container -->
+  <!-- 3D Navigation Hint Bar -->
+  <div class="controls-3d-hint" id="controls-3d-hint">
+    <span><b>Left-Drag:</b> Pan Area</span>
+    <span><b>Right-Drag:</b> Orbit / Tilt 3D</span>
+    <span><b>Scroll:</b> Zoom to Cursor</span>
+    <span><b>Double-Click:</b> Fly &amp; Focus Area</span>
+  </div>
+
+  <!-- 3D Floating Tooltip -->
+  <div id="tooltip-3d"></div>
+
+  <!-- Main 2D & 3D Map Containers -->
   <div id="map"></div>
+  <div id="map-3d"></div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -837,6 +982,7 @@
 
       worldData = null;
       playerMarker = null;
+      if (window.flush3dScene) window.flush3dScene();
 
       // 7. Reset map view & invalidate size
       map.setView([0, 0], -2);
@@ -1090,6 +1236,10 @@
         map.fitBounds([corner1, corner2], { padding: [50, 50], animate: false });
       }
       map.invalidateSize();
+
+      if (window.rebuild3dWorld) {
+        window.rebuild3dWorld(data);
+      }
     }
 
     function populateNodeFilters(counts, modSources) {
@@ -1250,6 +1400,7 @@
       } else {
         map.removeLayer(landmassLayer);
       }
+      if (window.sync3dTerrainVisibility) window.sync3dTerrainVisibility();
     }
 
     function setLandmassOpacity(val) {
@@ -1258,9 +1409,14 @@
       if (landmassLayer) {
         landmassLayer.setOpacity(opacity);
       }
+      if (window.sync3dTerrainOpacity) window.sync3dTerrainOpacity(opacity);
     }
 
     function focusLandmass() {
+      if (window.currentViewMode === '3d' && window.reset3dCamera) {
+        window.reset3dCamera(true);
+        return;
+      }
       if (activeLandmassBounds) {
         map.fitBounds(activeLandmassBounds, { padding: [30, 30] });
       }
@@ -1288,6 +1444,7 @@
         if (chk.checked) map.addLayer(layerGroups.deposits);
         else map.removeLayer(layerGroups.deposits);
       }
+      if (window.sync3dLayerVisibility) window.sync3dLayerVisibility();
     }
 
     function toggleCategoryLayer(category) {
@@ -1301,6 +1458,7 @@
       } else {
         if (map.hasLayer(group)) map.removeLayer(group);
       }
+      if (window.sync3dLayerVisibility) window.sync3dLayerVisibility();
     }
 
     let allNodesActive = true;
@@ -1316,6 +1474,7 @@
           if (map.hasLayer(group)) map.removeLayer(group);
         }
       }
+      if (window.sync3dLayerVisibility) window.sync3dLayerVisibility();
     }
 
     function filterResourceList() {
@@ -1486,6 +1645,804 @@
       flushWorldState();
       fetchSavesList();
     });
+  </script>
+
+  <!-- 3D Terrain Modeler & Interactive Viewer (Three.js + MapControls) -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { MapControls } from 'three/addons/controls/MapControls.js';
+
+    window.currentViewMode = '2d';
+
+    let scene = null;
+    let camera = null;
+    let renderer = null;
+    let controls = null;
+    let raycaster = null;
+    let pointerNDC = new THREE.Vector2();
+
+    let terrainMesh = null;
+    let waterMesh = null;
+    let hmHeader = null;   // { w, h, minX, maxX, minY, maxY }
+    let hmRawMeters = null; // Float32Array (NaN for void holes)
+
+    let verticalScale = 1.6;
+    let nodeMarkerScale = 1.0;
+
+    // 3D entity groups
+    const groups3d = {
+      root: null,
+      player: null,
+      somersloops: null,
+      mercerSpheres: null,
+      dropPods: null,
+      deposits: null,
+      nodesByCategory: {}
+    };
+
+    // Interactive pickables for hover tooltips & double-click focus
+    let pickableInstancedMeshes = [];
+    let cameraFlyAnim = null; // { startPos, endPos, startTarget, endTarget, startTime, duration }
+
+    function ensure3dInitialized() {
+      if (renderer) return;
+      const container = document.getElementById('map-3d');
+      const w = container.clientWidth || window.innerWidth;
+      const h = container.clientHeight || window.innerHeight;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b0e14);
+      scene.fog = new THREE.FogExp2(0x0b0e14, 0.000032);
+
+      camera = new THREE.PerspectiveCamera(48, w / h, 5, 45000);
+      camera.position.set(0, 4200, 4800);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      container.appendChild(renderer.domElement);
+
+      controls = new MapControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.065;
+      controls.screenSpacePanning = false;
+      controls.zoomToCursor = true;
+      controls.minDistance = 40;
+      controls.maxDistance = 22000;
+      controls.maxPolarAngle = Math.PI * 0.485; // Keep camera above horizon
+
+      // Lighting
+      const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.95);
+      hemiLight.position.set(0, 5000, 0);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.15);
+      dirLight.position.set(-4000, 6500, -3500);
+      scene.add(dirLight);
+
+      const fillLight = new THREE.DirectionalLight(0x93c5fd, 0.35);
+      fillLight.position.set(4000, 3500, 4000);
+      scene.add(fillLight);
+
+      // Subtle reference grid under the continent
+      const gridHelper = new THREE.GridHelper(16000, 32, 0x334155, 0x1e293b);
+      gridHelper.position.y = -45;
+      scene.add(gridHelper);
+
+      groups3d.root = new THREE.Group();
+      scene.add(groups3d.root);
+
+      raycaster = new THREE.Raycaster();
+
+      // Mouse move: update coordinates HUD & 3D hover tooltip
+      renderer.domElement.addEventListener('pointermove', on3dPointerMove);
+      // Double click: smoothly fly and zoom into specific area or node
+      renderer.domElement.addEventListener('dblclick', on3dDoubleClick);
+
+      window.addEventListener('resize', on3dWindowResize);
+      requestAnimationFrame(animate3d);
+    }
+
+    function on3dWindowResize() {
+      if (!renderer || window.currentViewMode !== '3d') return;
+      const container = document.getElementById('map-3d');
+      const w = container.clientWidth || window.innerWidth;
+      const h = container.clientHeight || window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    function sampleTerrainElevationMeters(mx, my) {
+      if (!hmHeader || !hmRawMeters) return 0.0;
+      const u = (mx - hmHeader.minX) / (hmHeader.maxX - hmHeader.minX);
+      const v = (my - hmHeader.minY) / (hmHeader.maxY - hmHeader.minY);
+      if (u < 0 || u > 1 || v < 0 || v > 1) return 0.0;
+      const gx = Math.min(hmHeader.w - 1, Math.max(0, Math.floor(u * hmHeader.w)));
+      const gy = Math.min(hmHeader.h - 1, Math.max(0, Math.floor(v * hmHeader.h)));
+      const h = hmRawMeters[gy * hmHeader.w + gx];
+      return Number.isNaN(h) ? 0.0 : h;
+    }
+
+    window.flush3dScene = function() {
+      const tt = document.getElementById('tooltip-3d');
+      if (tt) tt.style.display = 'none';
+      pickableInstancedMeshes = [];
+      if (!scene) return;
+
+      if (terrainMesh) {
+        scene.remove(terrainMesh);
+        if (terrainMesh.geometry) terrainMesh.geometry.dispose();
+        if (terrainMesh.material) {
+          if (terrainMesh.material.map) terrainMesh.material.map.dispose();
+          terrainMesh.material.dispose();
+        }
+        terrainMesh = null;
+      }
+      if (waterMesh) {
+        scene.remove(waterMesh);
+        if (waterMesh.geometry) waterMesh.geometry.dispose();
+        if (waterMesh.material) waterMesh.material.dispose();
+        waterMesh = null;
+      }
+      if (groups3d.root) {
+        scene.remove(groups3d.root);
+      }
+      groups3d.root = new THREE.Group();
+      scene.add(groups3d.root);
+      groups3d.player = null;
+      groups3d.somersloops = null;
+      groups3d.mercerSpheres = null;
+      groups3d.dropPods = null;
+      groups3d.deposits = null;
+      groups3d.nodesByCategory = {};
+    };
+
+    window.rebuild3dWorld = async function(data) {
+      if (!data) return;
+      ensure3dInitialized();
+      window.flush3dScene();
+
+      try {
+        // 1. Fetch binary heightmap (/api/heightmap.bin) & map texture (/api/map.png) concurrently
+        const cacheBust = Date.now();
+        const [hmRes, tex] = await Promise.all([
+          fetch('/api/heightmap.bin?t=' + cacheBust),
+          new THREE.TextureLoader().loadAsync('/api/map.png?t=' + cacheBust)
+        ]);
+
+        if (hmRes.ok) {
+          const buf = await hmRes.arrayBuffer();
+          const dv = new DataView(buf);
+          const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+          if (magic === 'PWHM') {
+            const w = dv.getUint32(4, true);
+            const h = dv.getUint32(8, true);
+            const minX = dv.getFloat32(12, true);
+            const maxX = dv.getFloat32(16, true);
+            const minY = dv.getFloat32(20, true);
+            const maxY = dv.getFloat32(24, true);
+            hmHeader = { w, h, minX, maxX, minY, maxY };
+
+            hmRawMeters = new Float32Array(w * h);
+            let byteOff = 28;
+            for (let i = 0; i < w * h; i++) {
+              const dm = dv.getInt16(byteOff, true);
+              byteOff += 2;
+              hmRawMeters[i] = (dm === -32768) ? NaN : (dm / 10.0);
+            }
+
+            build3dTerrainMesh(tex);
+          }
+        }
+      } catch (err) {
+        console.error('Error building 3D terrain mesh:', err);
+      }
+
+      // 2. Build 3D Node & Artifact Markers
+      build3dMarkers(data);
+      window.sync3dTerrainVisibility();
+      window.sync3dLayerVisibility();
+      window.reset3dCamera(false);
+    };
+
+    function build3dTerrainMesh(texture) {
+      if (!hmHeader || !hmRawMeters) return;
+      const { w, h, minX, maxX, minY, maxY } = hmHeader;
+      const spanX = maxX - minX;
+      const spanY = maxY - minY;
+      const centerX = (minX + maxX) * 0.5;
+      const centerY = (minY + maxY) * 0.5;
+
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+      const numVerts = w * h;
+      const positions = new Float32Array(numVerts * 3);
+      const uvs = new Float32Array(numVerts * 2);
+
+      for (let gy = 0; gy < h; gy++) {
+        const vFrac = gy / (h - 1);
+        const wz = minY + vFrac * spanY;
+        for (let gx = 0; gx < w; gx++) {
+          const uFrac = gx / (w - 1);
+          const wx = minX + uFrac * spanX;
+          const idx = gy * w + gx;
+          const rawH = hmRawMeters[idx];
+          const wy = Number.isNaN(rawH) ? -60.0 : (rawH * verticalScale);
+
+          const pIdx = idx * 3;
+          positions[pIdx] = wx;
+          positions[pIdx + 1] = wy;
+          positions[pIdx + 2] = wz;
+
+          const uvIdx = idx * 2;
+          uvs[uvIdx] = uFrac;
+          uvs[uvIdx + 1] = 1.0 - vFrac; // Three.js UV (0,1) is top-left (gy=0)
+        }
+      }
+
+      // Build index buffer skipping void/hole quads (NaN vertices) for crisp 3D void cutouts
+      const indices = [];
+      for (let gy = 0; gy < h - 1; gy++) {
+        for (let gx = 0; gx < w - 1; gx++) {
+          const i00 = gy * w + gx;
+          const i10 = i00 + 1;
+          const i01 = (gy + 1) * w + gx;
+          const i11 = i01 + 1;
+
+          if (
+            Number.isNaN(hmRawMeters[i00]) ||
+            Number.isNaN(hmRawMeters[i10]) ||
+            Number.isNaN(hmRawMeters[i01]) ||
+            Number.isNaN(hmRawMeters[i11])
+          ) {
+            continue;
+          }
+          indices.push(i00, i01, i10);
+          indices.push(i10, i01, i11);
+        }
+      }
+
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geom.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      geom.setIndex(indices);
+      geom.computeVertexNormals();
+
+      const opacitySlider = document.getElementById('landmass-opacity');
+      const initOpacity = opacitySlider ? (parseFloat(opacitySlider.value) / 100.0) : 0.95;
+      const wfChk = document.getElementById('chk-3d-wireframe');
+
+      const mat = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.86,
+        metalness: 0.06,
+        side: THREE.DoubleSide,
+        transparent: initOpacity < 0.99,
+        opacity: initOpacity,
+        wireframe: wfChk ? wfChk.checked : false
+      });
+
+      terrainMesh = new THREE.Mesh(geom, mat);
+      scene.add(terrainMesh);
+
+      // Semi-transparent ocean / sea-level water plane
+      const waterGeom = new THREE.PlaneGeometry(spanX * 1.15, spanY * 1.15, 1, 1);
+      waterGeom.rotateX(-Math.PI / 2);
+      const waterMat = new THREE.MeshStandardMaterial({
+        color: 0x0ea5e9,
+        roughness: 0.25,
+        metalness: 0.15,
+        transparent: true,
+        opacity: 0.36,
+        depthWrite: false
+      });
+      waterMesh = new THREE.Mesh(waterGeom, waterMat);
+      waterMesh.position.set(centerX, -18.5 * verticalScale, centerY);
+      const waterChk = document.getElementById('chk-3d-water');
+      waterMesh.visible = waterChk ? waterChk.checked : true;
+      scene.add(waterMesh);
+    }
+
+    function createInstancedCategoryMesh(items, geometry, colorHex, stemHeightM) {
+      if (!items || items.length === 0) return null;
+      const group = new THREE.Group();
+
+      // Head markers
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(colorHex),
+        roughness: 0.3,
+        metalness: 0.2,
+        emissive: new THREE.Color(colorHex),
+        emissiveIntensity: 0.22
+      });
+      const instMesh = new THREE.InstancedMesh(geometry, mat, items.length);
+      instMesh.userData.items = items;
+
+      // Vertical pins/stems anchoring each 3D marker to the terrain below it
+      const stemPositions = new Float32Array(items.length * 6);
+      const dummy = new THREE.Object3D();
+
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const mx = it.ux / 100.0;
+        const mz = it.uy / 100.0;
+        const actorElevM = it.uz / 100.0;
+        const terrElevM = sampleTerrainElevationMeters(mx, mz);
+        const baseElevM = Math.max(actorElevM, terrElevM);
+
+        const headY = (baseElevM * verticalScale) + stemHeightM * nodeMarkerScale;
+        const groundY = (terrElevM * verticalScale);
+
+        dummy.position.set(mx, headY, mz);
+        const s = (it.scaleMul || 1.0) * nodeMarkerScale;
+        dummy.scale.set(s, s, s);
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(i, dummy.matrix);
+
+        const sOff = i * 6;
+        stemPositions[sOff] = mx;
+        stemPositions[sOff + 1] = groundY;
+        stemPositions[sOff + 2] = mz;
+        stemPositions[sOff + 3] = mx;
+        stemPositions[sOff + 4] = headY;
+        stemPositions[sOff + 5] = mz;
+      }
+
+      instMesh.instanceMatrix.needsUpdate = true;
+      group.add(instMesh);
+
+      const stemGeom = new THREE.BufferGeometry();
+      stemGeom.setAttribute('position', new THREE.BufferAttribute(stemPositions, 3));
+      const stemMat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(colorHex),
+        transparent: true,
+        opacity: 0.55
+      });
+      const stemLines = new THREE.LineSegments(stemGeom, stemMat);
+      group.add(stemLines);
+
+      group.userData = { instMesh, stemLines, items, stemHeightM };
+      pickableInstancedMeshes.push(instMesh);
+      return group;
+    }
+
+    function updateGroupPositionsForScale(group) {
+      if (!group || !group.userData || !group.userData.items) return;
+      const { instMesh, stemLines, items, stemHeightM } = group.userData;
+      const dummy = new THREE.Object3D();
+      const stemPos = stemLines.geometry.attributes.position.array;
+
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const mx = it.ux / 100.0;
+        const mz = it.uy / 100.0;
+        const actorElevM = it.uz / 100.0;
+        const terrElevM = sampleTerrainElevationMeters(mx, mz);
+        const baseElevM = Math.max(actorElevM, terrElevM);
+
+        const headY = (baseElevM * verticalScale) + stemHeightM * nodeMarkerScale;
+        const groundY = (terrElevM * verticalScale);
+
+        dummy.position.set(mx, headY, mz);
+        const s = (it.scaleMul || 1.0) * nodeMarkerScale;
+        dummy.scale.set(s, s, s);
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(i, dummy.matrix);
+
+        const sOff = i * 6;
+        stemPos[sOff] = mx;
+        stemPos[sOff + 1] = groundY;
+        stemPos[sOff + 2] = mz;
+        stemPos[sOff + 3] = mx;
+        stemPos[sOff + 4] = headY;
+        stemPos[sOff + 5] = mz;
+      }
+      instMesh.instanceMatrix.needsUpdate = true;
+      instMesh.computeBoundingSphere();
+      stemLines.geometry.attributes.position.needsUpdate = true;
+    }
+
+    function build3dMarkers(data) {
+      pickableInstancedMeshes = [];
+      const sphereGeom = new THREE.SphereGeometry(22, 14, 14);
+      const octaGeom = new THREE.OctahedronGeometry(26, 0);
+      const coneGeom = new THREE.ConeGeometry(24, 45, 8);
+
+      // 1. Pioneer (Player)
+      if (data.player && data.player.transform) {
+        const [px, py, pz] = data.player.transform.translation;
+        const pItems = [{
+          ux: px, uy: py, uz: pz, scaleMul: 1.5,
+          tooltipHtml: `
+            <div class="tooltip-title" style="color: #00d2ff;"><span>Pioneer Location</span></div>
+            <div class="tooltip-coords">X: ${px.toFixed(0)}, Y: ${py.toFixed(0)}, Z: ${pz.toFixed(0)} (${(pz/100).toFixed(1)}m)</div>
+          `
+        }];
+        groups3d.player = createInstancedCategoryMesh(pItems, coneGeom, '#00d2ff', 55);
+        if (groups3d.player) groups3d.root.add(groups3d.player);
+      }
+
+      // 2. Somersloops
+      if (data.somersloops && data.somersloops.length > 0) {
+        const items = data.somersloops.map(s => {
+          const [sx, sy, sz] = s.transform.translation;
+          return {
+            ux: sx, uy: sy, uz: sz, scaleMul: 0.95,
+            tooltipHtml: `
+              <div class="tooltip-title" style="color: #c084fc;"><span>🟣 Somersloop</span><span class="mod-badge-sfplus">Artifact</span></div>
+              <div class="tooltip-coords">X: ${sx.toFixed(0)}, Y: ${sy.toFixed(0)}, Z: ${sz.toFixed(0)} (${(sz/100).toFixed(1)}m)</div>
+            `
+          };
+        });
+        groups3d.somersloops = createInstancedCategoryMesh(items, octaGeom, '#a855f7', 38);
+        if (groups3d.somersloops) groups3d.root.add(groups3d.somersloops);
+      }
+
+      // 3. Mercer Spheres
+      if (data.mercer_spheres && data.mercer_spheres.length > 0) {
+        const items = data.mercer_spheres.map(m => {
+          const [mx, my, mz] = m.transform.translation;
+          return {
+            ux: mx, uy: my, uz: mz, scaleMul: 0.9,
+            tooltipHtml: `
+              <div class="tooltip-title" style="color: #f472b6;"><span>🔮 Mercer Sphere</span></div>
+              <div class="tooltip-coords">X: ${mx.toFixed(0)}, Y: ${my.toFixed(0)}, Z: ${mz.toFixed(0)} (${(mz/100).toFixed(1)}m)</div>
+            `
+          };
+        });
+        groups3d.mercerSpheres = createInstancedCategoryMesh(items, octaGeom, '#ec4899', 36);
+        if (groups3d.mercerSpheres) groups3d.root.add(groups3d.mercerSpheres);
+      }
+
+      // 4. Drop Pods
+      if (data.drop_pods && data.drop_pods.length > 0) {
+        const items = data.drop_pods.map(pod => {
+          const [dx, dy, dz] = pod.transform.translation;
+          return {
+            ux: dx, uy: dy, uz: dz, scaleMul: 0.95,
+            tooltipHtml: `
+              <div class="tooltip-title" style="color: #e74c3c;">Drop Pod (Crash Site)</div>
+              <div>Power: ${pod.power_consumption ? pod.power_consumption + ' MW' : 'None / Item Only'}</div>
+              <div class="tooltip-coords">X: ${dx.toFixed(0)}, Y: ${dy.toFixed(0)}, Z: ${dz.toFixed(0)} (${(dz/100).toFixed(1)}m)</div>
+            `
+          };
+        });
+        groups3d.dropPods = createInstancedCategoryMesh(items, coneGeom, '#e74c3c', 36);
+        if (groups3d.dropPods) groups3d.root.add(groups3d.dropPods);
+      }
+
+      // 5. Resource Nodes by Category
+      groups3d.nodesByCategory = {};
+      if (data.resource_nodes) {
+        const byCat = {};
+        for (const node of data.resource_nodes) {
+          const rawName = node.resource_name || 'Unknown';
+          if (!byCat[rawName]) byCat[rawName] = [];
+          const [nx, ny, nz] = node.transform.translation;
+          const purity = (node.purity || '').replace('RP_', '');
+          const purityClass = purity ? `purity-${purity.toLowerCase()}` : '';
+          const rColor = getResourceColor(rawName);
+          const scaleMul = purity === 'Pure' ? 1.15 : (purity === 'Normal' ? 0.92 : 0.75);
+
+          let badgeHtml = '';
+          if (node.mod_source === 'RefinedPower') badgeHtml += '<span class="mod-badge-rp">Refined Power</span>';
+          else if (node.mod_source === 'SatisfactoryPlus') badgeHtml += '<span class="mod-badge-sfplus">Satisfactory+</span>';
+          else if (node.mod_source === 'FicsitFarming') badgeHtml += '<span class="mod-badge-farming">Ficsit Farming</span>';
+
+          byCat[rawName].push({
+            ux: nx, uy: ny, uz: nz, scaleMul,
+            tooltipHtml: `
+              <div class="tooltip-title">
+                <span style="color: ${rColor};">●</span>
+                <span>${rawName}</span>
+                ${badgeHtml}
+                ${purity ? `<span class="tooltip-purity ${purityClass}">${purity}</span>` : ''}
+              </div>
+              <div class="tooltip-coords">X: ${nx.toFixed(0)}, Y: ${ny.toFixed(0)}, Z: ${nz.toFixed(0)} (${(nz/100).toFixed(1)}m)</div>
+            `
+          });
+        }
+
+        for (const [catName, items] of Object.entries(byCat)) {
+          const rColor = getResourceColor(catName);
+          const grp = createInstancedCategoryMesh(items, sphereGeom, rColor, 34);
+          if (grp) {
+            groups3d.nodesByCategory[catName] = grp;
+            groups3d.root.add(grp);
+          }
+        }
+      }
+
+      // 6. Resource Deposits
+      if (data.resource_deposits && data.resource_deposits.length > 0) {
+        const depGeom = new THREE.SphereGeometry(10, 8, 8);
+        const items = data.resource_deposits.map(dep => {
+          const [dx, dy, dz] = dep.transform.translation;
+          return {
+            ux: dx, uy: dy, uz: dz, scaleMul: 0.75,
+            tooltipHtml: `
+              <div class="tooltip-title" style="color: #bdc3c7;">Resource Deposit</div>
+              <div class="tooltip-coords">X: ${dx.toFixed(0)}, Y: ${dy.toFixed(0)}, Z: ${dz.toFixed(0)}</div>
+            `
+          };
+        });
+        groups3d.deposits = createInstancedCategoryMesh(items, depGeom, '#95a5a6', 18);
+        if (groups3d.deposits) groups3d.root.add(groups3d.deposits);
+      }
+    }
+
+    window.sync3dTerrainVisibility = function() {
+      const chk = document.getElementById('layer-landmass');
+      if (terrainMesh && chk) {
+        terrainMesh.visible = chk.checked;
+      }
+    };
+
+    window.sync3dTerrainOpacity = function(opacity) {
+      if (terrainMesh && terrainMesh.material) {
+        terrainMesh.material.transparent = opacity < 0.99;
+        terrainMesh.material.opacity = opacity;
+        terrainMesh.material.needsUpdate = true;
+      }
+    };
+
+    window.sync3dLayerVisibility = function() {
+      const setVis = (grp, id) => {
+        const el = document.getElementById(id);
+        if (grp && el) grp.visible = el.checked;
+      };
+      setVis(groups3d.player, 'layer-player');
+      setVis(groups3d.somersloops, 'layer-somersloops');
+      setVis(groups3d.mercerSpheres, 'layer-mercerspheres');
+      setVis(groups3d.dropPods, 'layer-droppods');
+      setVis(groups3d.deposits, 'layer-deposits');
+
+      for (const [catName, grp] of Object.entries(groups3d.nodesByCategory)) {
+        const safeId = 'filter-' + catName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const chk = document.getElementById(safeId);
+        if (grp && chk) {
+          grp.visible = chk.checked;
+        }
+      }
+    };
+
+    window.on3dVerticalScaleChange = function(val) {
+      verticalScale = parseFloat(val);
+      document.getElementById('vscale-3d-val').innerText = verticalScale.toFixed(1) + 'x';
+      if (terrainMesh && hmHeader && hmRawMeters) {
+        const posAttr = terrainMesh.geometry.attributes.position;
+        const arr = posAttr.array;
+        for (let i = 0; i < hmRawMeters.length; i++) {
+          const rawH = hmRawMeters[i];
+          arr[i * 3 + 1] = Number.isNaN(rawH) ? -60.0 : (rawH * verticalScale);
+        }
+        posAttr.needsUpdate = true;
+        terrainMesh.geometry.computeVertexNormals();
+      }
+      if (waterMesh) {
+        waterMesh.position.y = -18.5 * verticalScale;
+      }
+      updateGroupPositionsForScale(groups3d.player);
+      updateGroupPositionsForScale(groups3d.somersloops);
+      updateGroupPositionsForScale(groups3d.mercerSpheres);
+      updateGroupPositionsForScale(groups3d.dropPods);
+      updateGroupPositionsForScale(groups3d.deposits);
+      for (const grp of Object.values(groups3d.nodesByCategory)) {
+        updateGroupPositionsForScale(grp);
+      }
+    };
+
+    window.on3dNodeSizeChange = function(val) {
+      nodeMarkerScale = parseFloat(val);
+      document.getElementById('nodesize-3d-val').innerText = nodeMarkerScale.toFixed(1) + 'x';
+      updateGroupPositionsForScale(groups3d.player);
+      updateGroupPositionsForScale(groups3d.somersloops);
+      updateGroupPositionsForScale(groups3d.mercerSpheres);
+      updateGroupPositionsForScale(groups3d.dropPods);
+      updateGroupPositionsForScale(groups3d.deposits);
+      for (const grp of Object.values(groups3d.nodesByCategory)) {
+        updateGroupPositionsForScale(grp);
+      }
+    };
+
+    window.toggle3dWater = function(checked) {
+      if (waterMesh) waterMesh.visible = checked;
+    };
+
+    window.toggle3dWireframe = function(checked) {
+      if (terrainMesh && terrainMesh.material) {
+        terrainMesh.material.wireframe = checked;
+      }
+    };
+
+    window.reset3dCamera = function(animate) {
+      if (!camera || !controls) return;
+      const cx = hmHeader ? (hmHeader.minX + hmHeader.maxX) * 0.5 : 0;
+      const cz = hmHeader ? (hmHeader.minY + hmHeader.maxY) * 0.5 : 0;
+      const span = hmHeader ? Math.max(hmHeader.maxX - hmHeader.minX, hmHeader.maxY - hmHeader.minY) : 10000;
+
+      const targetEnd = new THREE.Vector3(cx, 0, cz);
+      const posEnd = new THREE.Vector3(cx, span * 0.52, cz + span * 0.55);
+
+      if (animate) {
+        flyCameraTo(posEnd, targetEnd, 650);
+      } else {
+        controls.target.copy(targetEnd);
+        camera.position.copy(posEnd);
+        controls.update();
+      }
+    };
+
+    function flyCameraTo(endPos, endTarget, duration = 550) {
+      cameraFlyAnim = {
+        startPos: camera.position.clone(),
+        endPos: endPos.clone(),
+        startTarget: controls.target.clone(),
+        endTarget: endTarget.clone(),
+        startTime: performance.now(),
+        duration
+      };
+    }
+
+    function on3dPointerMove(e) {
+      if (!renderer || window.currentViewMode !== '3d') return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointerNDC, camera);
+
+      // 1. Check active 3D markers for hover tooltip
+      const visibleMeshes = pickableInstancedMeshes.filter(m => m.parent && m.parent.visible);
+      const hits = raycaster.intersectObjects(visibleMeshes, false);
+      const tt = document.getElementById('tooltip-3d');
+
+      if (hits.length > 0 && hits[0].instanceId !== undefined) {
+        const hit = hits[0];
+        const item = hit.object.userData.items[hit.instanceId];
+        if (item && tt) {
+          tt.innerHTML = item.tooltipHtml;
+          tt.style.left = e.clientX + 'px';
+          tt.style.top = (e.clientY - 8) + 'px';
+          tt.style.display = 'block';
+          document.getElementById('hud-x').innerText = item.ux.toFixed(0);
+          document.getElementById('hud-y').innerText = item.uy.toFixed(0);
+          document.getElementById('hud-z').innerText = (item.uz / 100.0).toFixed(1) + 'm';
+          renderer.domElement.style.cursor = 'pointer';
+          return;
+        }
+      }
+
+      if (tt) tt.style.display = 'none';
+      renderer.domElement.style.cursor = 'grab';
+
+      // 2. Raycast terrain for live 3D (X, Y, Z) cursor coordinates
+      if (terrainMesh && terrainMesh.visible) {
+        const terrHits = raycaster.intersectObject(terrainMesh, false);
+        if (terrHits.length > 0) {
+          const pt = terrHits[0].point;
+          document.getElementById('hud-x').innerText = (pt.x * 100.0).toFixed(0);
+          document.getElementById('hud-y').innerText = (pt.z * 100.0).toFixed(0);
+          document.getElementById('hud-z').innerText = (pt.y / verticalScale).toFixed(1) + 'm';
+        }
+      }
+    }
+
+    function on3dDoubleClick(e) {
+      if (!renderer || window.currentViewMode !== '3d') return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointerNDC, camera);
+
+      const visibleMeshes = pickableInstancedMeshes.filter(m => m.parent && m.parent.visible);
+      const targets = terrainMesh && terrainMesh.visible ? [...visibleMeshes, terrainMesh] : visibleMeshes;
+      const hits = raycaster.intersectObjects(targets, false);
+
+      if (hits.length > 0) {
+        const focusPt = hits[0].point.clone();
+        const offset = camera.position.clone().sub(controls.target);
+        // Zoom in 45% closer toward the clicked area while preserving camera angle
+        const newDist = Math.max(180, offset.length() * 0.55);
+        offset.normalize().multiplyScalar(newDist);
+        if (offset.y < 140) offset.y = 140;
+        const newCamPos = focusPt.clone().add(offset);
+        flyCameraTo(newCamPos, focusPt, 520);
+      }
+    }
+
+    window.setViewMode = function(mode) {
+      if (mode === window.currentViewMode) return;
+      window.currentViewMode = mode;
+
+      const btn2d = document.getElementById('btn-mode-2d');
+      const btn3d = document.getElementById('btn-mode-3d');
+      const map2dEl = document.getElementById('map');
+      const map3dEl = document.getElementById('map-3d');
+      const ctrl3dSec = document.getElementById('controls-3d-section');
+      const hint3dEl = document.getElementById('controls-3d-hint');
+      const hudZWrap = document.getElementById('hud-z-wrap');
+      const tt3d = document.getElementById('tooltip-3d');
+
+      if (mode === '3d') {
+        btn2d.classList.remove('active');
+        btn3d.classList.add('active');
+
+        // Capture current 2D center & zoom before hiding 2D map
+        const centerLatLng = map.getCenter();
+        const zoom2d = map.getZoom();
+        const ueCenter = latLngToUe(centerLatLng.lat, centerLatLng.lng);
+        const targetX = ueCenter.x / 100.0;
+        const targetZ = ueCenter.y / 100.0;
+
+        map2dEl.style.display = 'none';
+        map3dEl.style.display = 'block';
+        if (ctrl3dSec) ctrl3dSec.style.display = 'flex';
+        if (hint3dEl) hint3dEl.style.display = 'flex';
+        if (hudZWrap) hudZWrap.style.display = 'inline';
+
+        ensure3dInitialized();
+        on3dWindowResize();
+
+        if (worldData && !terrainMesh) {
+          window.rebuild3dWorld(worldData);
+        }
+
+        // Sync 3D camera target & distance to the exact area the user was viewing in 2D
+        const targetY = sampleTerrainElevationMeters(targetX, targetZ) * verticalScale;
+        const dist = Math.max(220, Math.min(14000, 1800 * Math.pow(2, -zoom2d)));
+        controls.target.set(targetX, targetY, targetZ);
+        camera.position.set(targetX, targetY + dist * 0.72, targetZ + dist * 0.68);
+        controls.update();
+      } else {
+        btn3d.classList.remove('active');
+        btn2d.classList.add('active');
+        if (tt3d) tt3d.style.display = 'none';
+        if (ctrl3dSec) ctrl3dSec.style.display = 'none';
+        if (hint3dEl) hint3dEl.style.display = 'none';
+        if (hudZWrap) hudZWrap.style.display = 'none';
+
+        map3dEl.style.display = 'none';
+        map2dEl.style.display = 'block';
+        map.invalidateSize();
+
+        // Sync 2D Leaflet view to the 3D camera target & distance
+        if (controls && camera) {
+          const tx = controls.target.x * 100.0;
+          const ty = controls.target.z * 100.0;
+          const dist = camera.position.distanceTo(controls.target);
+          const eqZoom = Math.max(-5, Math.min(2.5, -Math.log2(Math.max(100, dist) / 1800)));
+          map.setView(ueToLatLng(tx, ty), eqZoom, { animate: false });
+        }
+      }
+    };
+
+    function animate3d(now) {
+      requestAnimationFrame(animate3d);
+      if (window.currentViewMode !== '3d' || !renderer || !scene || !camera) return;
+
+      if (cameraFlyAnim) {
+        const elapsed = now - cameraFlyAnim.startTime;
+        const t = Math.min(1.0, elapsed / cameraFlyAnim.duration);
+        // Smooth cubic ease-out
+        const ease = 1.0 - Math.pow(1.0 - t, 3);
+        camera.position.lerpVectors(cameraFlyAnim.startPos, cameraFlyAnim.endPos, ease);
+        controls.target.lerpVectors(cameraFlyAnim.startTarget, cameraFlyAnim.endTarget, ease);
+        if (t >= 1.0) cameraFlyAnim = null;
+      }
+
+      controls.update();
+      const camDist = camera.position.distanceTo(controls.target);
+      const zoomEl = document.getElementById('hud-zoom');
+      if (zoomEl) zoomEl.innerText = (camDist / 1000).toFixed(2) + 'km';
+
+      renderer.render(scene, camera);
+    }
   </script>
 </body>
 </html>

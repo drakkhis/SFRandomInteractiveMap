@@ -22,6 +22,7 @@ pub struct AppState {
     pub active_save_filename: Arc<RwLock<Option<String>>>,
     pub cache: Arc<RwLock<Option<(SystemTime, WorldSnapshot)>>>,
     pub generated_map_png: Arc<RwLock<Option<Vec<u8>>>>,
+    pub generated_heightmap: Arc<RwLock<Option<Vec<u8>>>>,
 }
 
 impl AppState {
@@ -31,6 +32,7 @@ impl AppState {
             active_save_filename: Arc::new(RwLock::new(None)),
             cache: Arc::new(RwLock::new(None)),
             generated_map_png: Arc::new(RwLock::new(None)),
+            generated_heightmap: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -189,6 +191,10 @@ pub async fn upload_save_handler(
         *map_lock = summary.generated_map_png;
     }
     {
+        let mut hm_lock = state.generated_heightmap.write().await;
+        *hm_lock = summary.generated_heightmap;
+    }
+    {
         let mut cached = state.cache.write().await;
         *cached = Some((mtime, snapshot.clone()));
     }
@@ -238,6 +244,10 @@ pub async fn load_save_handler(
     {
         let mut map_lock = state.generated_map_png.write().await;
         *map_lock = summary.generated_map_png;
+    }
+    {
+        let mut hm_lock = state.generated_heightmap.write().await;
+        *hm_lock = summary.generated_heightmap;
     }
     {
         let mut cached = state.cache.write().await;
@@ -331,6 +341,10 @@ pub async fn world_handler(
         *map_lock = summary.generated_map_png;
     }
     {
+        let mut hm_lock = state.generated_heightmap.write().await;
+        *hm_lock = summary.generated_heightmap;
+    }
+    {
         let mut cached = state.cache.write().await;
         *cached = Some((mtime, snapshot.clone()));
     }
@@ -341,6 +355,7 @@ pub async fn world_handler(
 const INDEX_HTML: &str = include_str!("static/index.html");
 const LANDMASS_PNG: &[u8] = include_bytes!("static/landmass.png");
 const VANILLA_MAP_PNG: &[u8] = include_bytes!("static/vanilla_map.png");
+const VANILLA_HEIGHTMAP_BIN: &[u8] = include_bytes!("static/vanilla_heightmap.bin");
 
 /// Handler for GET / returning the interactive Leaflet map frontend.
 pub async fn index_handler() -> impl IntoResponse {
@@ -376,12 +391,27 @@ pub async fn landmass_handler(State(state): State<AppState>) -> impl IntoRespons
     )
 }
 
+/// Handler for GET /api/heightmap.bin returning the compact 512x512 binary `PWHM` 3D heightmap
+/// for RWG saves (extracted from `PWW1` Section 1 & 2) or Standard Map saves (`vanilla_heightmap.bin`).
+pub async fn heightmap_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let hm_opt = state.generated_heightmap.read().await.clone();
+    let bytes = hm_opt.unwrap_or_else(|| VANILLA_HEIGHTMAP_BIN.to_vec());
+    (
+        [
+            (axum::http::header::CONTENT_TYPE, "application/octet-stream"),
+            (axum::http::header::CACHE_CONTROL, "no-store, no-cache, must-revalidate"),
+        ],
+        bytes,
+    )
+}
+
 /// Creates the axum router for the application.
 pub fn create_app(state: AppState) -> Router {
     Router::new()
         .route("/", get(index_handler))
         .route("/static/landmass.png", get(landmass_handler))
         .route("/api/map.png", get(landmass_handler))
+        .route("/api/heightmap.bin", get(heightmap_handler))
         .route("/api/status", get(status_handler))
         .route("/api/world", get(world_handler))
         .route("/api/saves", get(list_saves_handler))
