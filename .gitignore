@@ -20,6 +20,8 @@ samples/*221026*.sav
 basemap_preview.png
 test_landmass.png
 user_screenshot.png
+*.WebView2/
+*.WebView2
 
 # Rustfmt & IDE
 **/*.rs.bk
