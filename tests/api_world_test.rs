@@ -198,5 +198,82 @@ async fn test_api_world_endpoint() {
         std::fs::write("scratch/rust_generated_maptest.png", &map_bytes_2).unwrap();
         std::fs::write("scratch/rust_generated_rptest.png", &map_bytes_1).unwrap();
     }
+
+    // 5. Test POST /api/save/teleport
+    let teleport_payload = serde_json::json!({
+        "x": 99999.0,
+        "y": -88888.0,
+        "z": 7777.0
+    });
+    let teleport_req = Request::builder()
+        .uri("/api/save/teleport")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(teleport_payload.to_string()))
+        .unwrap();
+
+    let teleport_res = app.clone().oneshot(teleport_req).await.unwrap();
+    assert_eq!(teleport_res.status(), StatusCode::OK);
+    assert_eq!(
+        teleport_res.headers().get("content-type").unwrap(),
+        "application/octet-stream"
+    );
+    assert!(teleport_res.headers().contains_key("content-disposition"));
+
+    let teleport_bytes = axum::body::to_bytes(teleport_res.into_body(), 100 * 1024 * 1024)
+        .await
+        .unwrap();
+
+    let repacked_summary = sat_rwg_map::parse_save_bytes(&teleport_bytes)
+        .expect("Teleported binary must parse as valid save file");
+    let repacked_player = repacked_summary.player.expect("Player must exist");
+    assert_eq!(repacked_player.transform.translation, [99999.0, -88888.0, 7777.0]);
+
+    // 6. Test POST /api/player/move (staged move without downloading stream)
+    let move_player_req = Request::builder()
+        .uri("/api/player/move")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::json!({
+            "x": 11111.0,
+            "y": 22222.0,
+            "z": 3333.0
+        }).to_string()))
+        .unwrap();
+
+    let move_player_res = app.clone().oneshot(move_player_req).await.unwrap();
+    assert_eq!(move_player_res.status(), StatusCode::OK);
+
+    // 7. Test POST /api/node/move
+    let first_node_name = snapshot.resource_nodes[0].instance_name.clone();
+    let move_node_req = Request::builder()
+        .uri("/api/node/move")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::json!({
+            "instance_name": first_node_name,
+            "x": 44444.0,
+            "y": -55555.0,
+            "z": 6666.0
+        }).to_string()))
+        .unwrap();
+
+    let move_node_res = app.clone().oneshot(move_node_req).await.unwrap();
+    assert_eq!(move_node_res.status(), StatusCode::OK);
+
+    // 8. Test GET /api/save/download
+    let dl_req = Request::builder()
+        .uri("/api/save/download")
+        .method("GET")
+        .body(Body::empty())
+        .unwrap();
+
+    let dl_res = app.clone().oneshot(dl_req).await.unwrap();
+    assert_eq!(dl_res.status(), StatusCode::OK);
+    assert_eq!(
+        dl_res.headers().get("content-type").unwrap(),
+        "application/octet-stream"
+    );
+    assert!(dl_res.headers().contains_key("content-disposition"));
 }
 

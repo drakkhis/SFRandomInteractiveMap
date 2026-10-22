@@ -405,6 +405,264 @@ pub async fn heightmap_handler(State(state): State<AppState>) -> impl IntoRespon
     )
 }
 
+/// Request payload to relocate the pioneer player character.
+#[derive(Deserialize)]
+pub struct TeleportRequest {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+/// Handler for POST /api/save/teleport.
+/// Recompresses the active save file with updated player coordinates and returns the modified .sav binary.
+pub async fn teleport_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<TeleportRequest>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let target_save = get_target_save_path(&state).await.map_err(|e| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("No save file found in {:?}: {}", state.samples_dir, e),
+        )
+    })?;
+
+    let base_stem = target_save
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "save".to_string());
+    let new_filename = format!("{}_teleported.sav", base_stem);
+
+    let raw_bytes = fs::read(&target_save).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to read save file {:?}: {}", target_save, e),
+        )
+    })?;
+
+    let (repacked_bytes, _players) = tokio::task::spawn_blocking(move || {
+        crate::modify_player_coordinates(&raw_bytes, payload.x, payload.y, payload.z)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Join error: {}", e)))?
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to modify player position: {}", e)))?;
+
+    // Also write a copy into samples/ directory so it appears in save lists and can be loaded directly
+    let modified_save_path = state.samples_dir.join(&new_filename);
+    let _ = fs::write(&modified_save_path, &repacked_bytes);
+
+    // Update cached snapshot player position so frontend immediately reflects new coordinates
+    {
+        let mut cached_lock = state.cache.write().await;
+        if let Some((_, ref mut snapshot)) = *cached_lock {
+            if let Some(ref mut p) = snapshot.player {
+                p.transform.translation = [payload.x, payload.y, payload.z];
+            }
+        }
+    }
+
+    let headers = [
+        (axum::http::header::CONTENT_TYPE, "application/octet-stream".to_string()),
+        (
+            axum::http::header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", new_filename),
+        ),
+        (
+            axum::http::header::HeaderName::from_static("x-teleport-filename"),
+            new_filename,
+        ),
+    ];
+
+    Ok((headers, repacked_bytes))
+}
+
+/// Request payload to move a resource node.
+#[derive(Deserialize)]
+pub struct MoveNodeRequest {
+    pub instance_name: String,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    #[serde(default)]
+    pub rotation: Option<[f32; 4]>,
+}
+
+#[derive(Serialize)]
+pub struct MoveNodeResponse {
+    pub status: String,
+    pub moved_count: usize,
+    pub moved_nodes: Vec<crate::models::ResourceNodeSummary>,
+}
+
+/// Handler for POST /api/node/move.
+/// Modifies coordinates (and optional slope rotation) of a resource node (and any satellites if a ResourceWellCore).
+/// Automatically saves the modified state into the active save file on disk and updates cache.
+pub async fn move_node_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<MoveNodeRequest>,
+) -> Result<Json<MoveNodeResponse>, (StatusCode, String)> {
+    let target_save = get_target_save_path(&state).await.map_err(|e| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("No save file found in {:?}: {}", state.samples_dir, e),
+        )
+    })?;
+
+    let raw_bytes = fs::read(&target_save).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to read save file {:?}: {}", target_save, e),
+        )
+    })?;
+
+    let (repacked_bytes, moved_nodes) = tokio::task::spawn_blocking(move || {
+        crate::modify_node_coordinates(
+            &raw_bytes,
+            &payload.instance_name,
+            payload.x,
+            payload.y,
+            payload.z,
+            payload.rotation,
+        )
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Join error: {}", e)))?
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to move node: {}", e)))?;
+
+    // Save modified bytes directly to the active save file on disk
+    fs::write(&target_save, &repacked_bytes).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed writing modified save to disk: {}", e),
+        )
+    })?;
+
+    let new_mtime = fs::metadata(&target_save)
+        .and_then(|m| m.modified())
+        .unwrap_or_else(|_| SystemTime::now());
+
+    // Update in-memory snapshot cache
+    {
+        let mut cached_lock = state.cache.write().await;
+        if let Some((ref mut mtime, ref mut snapshot)) = *cached_lock {
+            *mtime = new_mtime;
+            for moved in &moved_nodes {
+                if let Some(node) = snapshot.resource_nodes.iter_mut().find(|n| {
+                    n.instance_name == moved.instance_name
+                        || n.instance_name.rsplit('.').next().unwrap_or("") == moved.instance_name.rsplit('.').next().unwrap_or("")
+                        || n.instance_name.ends_with(&moved.instance_name)
+                        || moved.instance_name.ends_with(&n.instance_name)
+                }) {
+                    node.transform.translation = moved.transform.translation;
+                    node.transform.rotation = moved.transform.rotation;
+                }
+            }
+        }
+    }
+
+    Ok(Json(MoveNodeResponse {
+        status: "ok".to_string(),
+        moved_count: moved_nodes.len(),
+        moved_nodes,
+    }))
+}
+
+/// Handler for POST /api/player/move.
+/// Modifies coordinates of the player character and saves back to disk and cache without initiating download.
+pub async fn move_player_handler(
+    State(state): State<AppState>,
+    Json(payload): Json<TeleportRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let target_save = get_target_save_path(&state).await.map_err(|e| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("No save file found in {:?}: {}", state.samples_dir, e),
+        )
+    })?;
+
+    let raw_bytes = fs::read(&target_save).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to read save file {:?}: {}", target_save, e),
+        )
+    })?;
+
+    let (repacked_bytes, _players) = tokio::task::spawn_blocking(move || {
+        crate::modify_player_coordinates(&raw_bytes, payload.x, payload.y, payload.z)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Join error: {}", e)))?
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to modify player position: {}", e)))?;
+
+    // Save modified bytes directly to active save file on disk
+    fs::write(&target_save, &repacked_bytes).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed writing modified save to disk: {}", e),
+        )
+    })?;
+
+    let new_mtime = fs::metadata(&target_save)
+        .and_then(|m| m.modified())
+        .unwrap_or_else(|_| SystemTime::now());
+
+    // Update cached snapshot player position
+    {
+        let mut cached_lock = state.cache.write().await;
+        if let Some((ref mut mtime, ref mut snapshot)) = *cached_lock {
+            *mtime = new_mtime;
+            if let Some(ref mut p) = snapshot.player {
+                p.transform.translation = [payload.x, payload.y, payload.z];
+            }
+        }
+    }
+
+    Ok(Json(serde_json::json!({
+        "status": "ok",
+        "x": payload.x,
+        "y": payload.y,
+        "z": payload.z
+    })))
+}
+
+/// Handler for GET /api/save/download.
+/// Downloads the active .sav file directly from disk.
+pub async fn download_save_handler(
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let target_save = get_target_save_path(&state).await.map_err(|e| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("No save file found in {:?}: {}", state.samples_dir, e),
+        )
+    })?;
+
+    let filename = target_save
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| "save.sav".to_string());
+
+    let bytes = fs::read(&target_save).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to read save file {:?}: {}", target_save, e),
+        )
+    })?;
+
+    let headers = [
+        (axum::http::header::CONTENT_TYPE, "application/octet-stream".to_string()),
+        (
+            axum::http::header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        ),
+        (
+            axum::http::header::HeaderName::from_static("x-save-filename"),
+            filename,
+        ),
+    ];
+
+    Ok((headers, bytes))
+}
+
 /// Creates the axum router for the application.
 pub fn create_app(state: AppState) -> Router {
     Router::new()
@@ -417,6 +675,10 @@ pub fn create_app(state: AppState) -> Router {
         .route("/api/saves", get(list_saves_handler))
         .route("/api/upload", post(upload_save_handler))
         .route("/api/load", post(load_save_handler))
+        .route("/api/save/download", get(download_save_handler))
+        .route("/api/save/teleport", post(teleport_handler))
+        .route("/api/player/move", post(move_player_handler))
+        .route("/api/node/move", post(move_node_handler))
         .layer(DefaultBodyLimit::max(250 * 1024 * 1024))
         .layer(CorsLayer::permissive())
         .with_state(state)

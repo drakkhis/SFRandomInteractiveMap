@@ -275,6 +275,7 @@ fn parse_single_level(
             let rot_z = rdr.read_f32::<LittleEndian>()?;
             let rot_w = rdr.read_f32::<LittleEndian>()?;
 
+            let translation_offset = rdr.position() as usize;
             let pos_x = rdr.read_f32::<LittleEndian>()?;
             let pos_y = rdr.read_f32::<LittleEndian>()?;
             let pos_z = rdr.read_f32::<LittleEndian>()?;
@@ -297,6 +298,7 @@ fn parse_single_level(
                     scale: [scale_x, scale_y, scale_z],
                 },
                 was_placed_in_level: was_placed,
+                translation_offset,
             }));
         } else if header_type == 0 {
             let class_name = read_fstring(rdr)?;
@@ -431,6 +433,7 @@ fn parse_single_level(
                     transform: actor_hdr.transform,
                     was_placed_in_level: actor_hdr.was_placed_in_level,
                     properties,
+                    translation_offset: actor_hdr.translation_offset,
                 });
             }
         }
@@ -943,6 +946,7 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                 player = Some(PlayerSummary {
                     instance_name: actor.instance_name.clone(),
                     transform: actor.transform,
+                    translation_offset: actor.translation_offset,
                 });
             }
 
@@ -998,6 +1002,7 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     resource_name: res_name,
                     node_type: Some("Geyser".to_string()),
                     mod_source: Some(mod_source),
+                    translation_offset: actor.translation_offset,
                 });
             } else if path.contains("BP_FrackingCore") || path.contains("BP_FrackingSatellite") {
                 // Resource Wells / Fracking Satellites
@@ -1035,6 +1040,7 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     resource_name: res_name,
                     node_type: Some(if is_core { "ResourceWellCore".to_string() } else { "ResourceWellSatellite".to_string() }),
                     mod_source: Some(mod_source),
+                    translation_offset: actor.translation_offset,
                 });
             } else if (path.contains("ResourceNode") && !path.contains("Subsystem"))
                 || path.contains("Node_BioWater")
@@ -1087,6 +1093,7 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     resource_name: res_name,
                     node_type: Some("Standard".to_string()),
                     mod_source: Some(mod_source),
+                    translation_offset: actor.translation_offset,
                 });
             } else if path.contains("BP_ResourceDeposit") {
                 let res_class = actor
@@ -1174,7 +1181,52 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                             resource_name: res_name,
                             node_type: Some(node_type.to_string()),
                             mod_source: Some("SatisfactoryPlus".to_string()),
+                            translation_offset: actor.translation_offset,
                         });
+                    }
+                }
+            }
+        }
+    }
+
+    // On standard maps (Persistent_Level) or vanilla saves, many fixed resource nodes,
+    // fracking wells, and geysers are static map level actors whose properties are not written
+    // to the save file until interacted with / mined.
+    // Fill in any missing resource_name, resource_class, and purity from the standard map template.
+    if parsed_save.header.map_name == "Persistent_Level" || world_seed.is_none() {
+        use crate::vanilla_nodes_data::VANILLA_NODES_TABLE;
+        use std::collections::HashMap;
+
+        let template_map: HashMap<&str, (&str, &str, Option<&str>, &str, &str)> = VANILLA_NODES_TABLE
+            .iter()
+            .map(|&(name, rname, rclass, purity, ntype, mod_src)| (name, (rname, rclass, purity, ntype, mod_src)))
+            .collect();
+
+        for node in &mut resource_nodes {
+            let short_name = node
+                .instance_name
+                .rsplit('.')
+                .next()
+                .unwrap_or(&node.instance_name);
+
+            if let Some(&(tpl_rname, tpl_rclass, tpl_purity, tpl_ntype, tpl_mod)) = template_map.get(short_name) {
+                // If resource name is missing or generic "BP_ResourceNode", backfill from template
+                if node.resource_name.is_none()
+                    || node.resource_name.as_deref() == Some("BP_ResourceNode")
+                    || node.resource_name.as_deref() == Some("Unknown")
+                {
+                    node.resource_name = Some(tpl_rname.to_string());
+                    if node.resource_class.is_none() {
+                        node.resource_class = Some(tpl_rclass.to_string());
+                    }
+                    if node.purity.is_none() {
+                        node.purity = tpl_purity.map(|s| s.to_string());
+                    }
+                    if node.node_type.is_none() || node.node_type.as_deref() == Some("Standard") && tpl_ntype != "Standard" {
+                        node.node_type = Some(tpl_ntype.to_string());
+                    }
+                    if node.mod_source.is_none() || node.mod_source.as_deref() == Some("Vanilla") && tpl_mod != "Vanilla" {
+                        node.mod_source = Some(tpl_mod.to_string());
                     }
                 }
             }

@@ -523,6 +523,423 @@
     .controls-3d-hint b {
       color: var(--accent-orange);
     }
+
+    /* Teleport HUD */
+    .teleport-hud {
+      position: fixed;
+      top: 65px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2200;
+      background: rgba(18, 22, 28, 0.96);
+      backdrop-filter: blur(12px);
+      border: 1px solid #00d2ff;
+      box-shadow: 0 10px 40px rgba(0, 210, 255, 0.25), 0 4px 16px rgba(0, 0, 0, 0.8);
+      border-radius: 10px;
+      padding: 14px 18px;
+      width: 440px;
+      max-width: 95vw;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: fadeInDown 0.25s ease-out;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translate(-50%, -15px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    .teleport-hud-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 8px;
+    }
+
+    .teleport-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00d2ff;
+      box-shadow: 0 0 8px #00d2ff;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+
+    .close-hud-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 4px;
+      transition: color 0.15s;
+    }
+    .close-hud-btn:hover { color: #fff; }
+
+    .teleport-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    .teleport-coords-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .coord-box {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .coord-box label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #00d2ff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .coord-box input {
+      background: rgba(10, 12, 16, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 5px;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 5px 8px;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+
+    .coord-box input:focus {
+      border-color: #00d2ff;
+    }
+
+    .teleport-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn-clamp-ground {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #ddd;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 7px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-clamp-ground:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #fff;
+    }
+
+    .btn-tilt-quick {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #bbb;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-tilt-quick:hover {
+      background: rgba(0, 210, 255, 0.2);
+      border-color: #00d2ff;
+      color: #00d2ff;
+    }
+
+    .btn-apply-teleport {
+      background: linear-gradient(135deg, #00d2ff 0%, #0077b6 100%);
+      border: none;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      box-shadow: 0 4px 15px rgba(0, 210, 255, 0.35);
+      transition: all 0.2s;
+    }
+    .btn-apply-teleport:hover {
+      background: linear-gradient(135deg, #33dcff 0%, #0088cc 100%);
+      box-shadow: 0 6px 20px rgba(0, 210, 255, 0.5);
+    }
+    .btn-apply-teleport:active {
+      transform: scale(0.98);
+    }
+
+    /* Target Reticle Icon in 2D */
+    .teleport-div-icon {
+      background: transparent;
+      border: none;
+    }
+    .teleport-reticle-icon {
+      position: relative;
+      cursor: grab;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .teleport-reticle-ring {
+      width: 30px;
+      height: 30px;
+      border: 2px dashed #00d2ff;
+      border-radius: 50%;
+      animation: spin 5s linear infinite;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.7);
+    }
+    .teleport-reticle-center {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #00d2ff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #00d2ff;
+    }
+
+    /* Notification Toast */
+    .notification-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 3000;
+      background: rgba(18, 22, 28, 0.95);
+      border: 1px solid #00d2ff;
+      border-radius: 8px;
+      padding: 12px 18px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      gap: 10px;
+      animation: fadeInRight 0.3s ease-out;
+    }
+    @keyframes fadeInRight {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Header Download Button & Modified Badge */
+    .btn-download-save {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+      transition: all 0.2s;
+    }
+    .btn-download-save:hover {
+      background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
+    }
+    .btn-download-save.has-changes {
+      animation: pulseGlow 2s infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
+      50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.9); }
+    }
+    .save-badge-modified {
+      background: #f59e0b;
+      color: #111;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+      margin-left: 2px;
+    }
+
+    /* Node Relocate Button in Leaflet Popup */
+    .btn-relocate-node {
+      margin-top: 8px;
+      width: 100%;
+      background: rgba(0, 210, 255, 0.15);
+      border: 1px solid #00d2ff;
+      color: #00d2ff;
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-relocate-node:hover {
+      background: #00d2ff;
+      color: #111;
+      box-shadow: 0 2px 10px rgba(0, 210, 255, 0.4);
+    }
+
+    /* Custom Leaflet Popup Styling */
+    .leaflet-popup-content-wrapper {
+      background: rgba(18, 22, 28, 0.96) !important;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px !important;
+      color: #fff !important;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7) !important;
+      padding: 4px !important;
+    }
+    .leaflet-popup-tip {
+      background: rgba(18, 22, 28, 0.96) !important;
+    }
+    .leaflet-popup-content {
+      margin: 8px 12px !important;
+      line-height: 1.4 !important;
+    }
+
+    /* Sidebar Relocate Button */
+    .btn-sidebar-relocate {
+      background: transparent;
+      border: 1px solid rgba(0, 210, 255, 0.35);
+      border-radius: 4px;
+      color: #00d2ff;
+      padding: 2px 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      margin-left: 6px;
+    }
+    .btn-sidebar-relocate:hover {
+      background: #00d2ff;
+      color: #111;
+      box-shadow: 0 0 8px rgba(0, 210, 255, 0.6);
+    }
+
+    /* Node Selector Modal & Cards */
+    .node-selector-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      background: rgba(8, 11, 16, 0.78);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.15s ease-out;
+    }
+    .node-selector-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 580px;
+      max-width: 92vw;
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+    }
+    .node-modal-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+    }
+    .node-selector-list {
+      overflow-y: auto;
+      flex: 1;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .node-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+    .node-list-item:hover {
+      border-color: #00d2ff;
+      background: rgba(0, 210, 255, 0.08);
+      transform: translateY(-1px);
+    }
+    .btn-select-node-item {
+      background: rgba(0, 210, 255, 0.15);
+      border: 1px solid #00d2ff;
+      color: #00d2ff;
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .btn-select-node-item:hover {
+      background: #00d2ff;
+      color: #111;
+      box-shadow: 0 2px 10px rgba(0, 210, 255, 0.4);
+    }
+    .category-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .category-pill:hover, .category-pill.active {
+      background: rgba(0, 210, 255, 0.18);
+      border-color: #00d2ff;
+      color: #00d2ff;
+    }
   </style>
   <!-- Import Map for Three.js ES Modules -->
   <script type="importmap">
@@ -581,6 +998,38 @@
       </button>
       <input type="file" id="save-file-input" accept=".sav" style="display: none;" onchange="handleSaveFileInput(event)">
 
+      <!-- Relocate Pioneer Button -->
+      <button class="btn-refresh" id="btn-teleport-toggle" onclick="startPioneerRelocation()" title="Relocate Pioneer player position on the map">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="12 8 8 16 12 14 16 16 12 8"></polygon>
+        </svg>
+        Move Pioneer
+      </button>
+
+      <!-- Relocate Resource Node Button -->
+      <button class="btn-refresh" id="btn-node-toggle" onclick="toggleNodeSelectionMode()" title="Select and relocate any resource node or well core">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="2" x2="12" y2="6"></line>
+          <line x1="12" y1="18" x2="12" y2="22"></line>
+          <line x1="2" y1="12" x2="6" y2="12"></line>
+          <line x1="18" y1="12" x2="22" y2="12"></line>
+        </svg>
+        Move Node
+      </button>
+
+      <!-- Dedicated Download Modified Save Button -->
+      <button class="btn-download-save" id="btn-download-save" onclick="downloadActiveSave()" title="Download the current modified .sav file to your computer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span>Download Save</span>
+        <span id="save-modified-badge" class="save-badge-modified" style="display: none;">Modified</span>
+      </button>
+
       <button class="btn-refresh" id="btn-refresh" onclick="loadWorldData()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
@@ -588,6 +1037,111 @@
         Refresh
       </button>
     </div>
+  </div>
+
+  <!-- Node Quick Selector Modal -->
+  <div id="node-selector-modal" class="node-selector-modal" style="display: none;" onclick="handleNodeModalBackdropClick(event)">
+    <div class="node-selector-card" onclick="event.stopPropagation()">
+      <div class="node-modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00d2ff" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+          <span style="font-weight: 700; font-size: 14px; color: #fff;">Select Resource Node to Relocate</span>
+        </div>
+        <button class="close-hud-btn" onclick="closeNodeSelectorModal()">&times;</button>
+      </div>
+
+      <div style="padding: 12px 16px 8px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="node-modal-search" placeholder="Search by resource, purity, or type (e.g. Water, Fracking, Uranium)..." oninput="renderNodeSelectorList()" style="flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text-main); font-size: 12px; outline: none;">
+          <button onclick="startMapPickMode()" style="background: rgba(0, 210, 255, 0.15); border: 1px solid #00d2ff; color: #00d2ff; border-radius: 6px; padding: 7px 12px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+            Pick On Map
+          </button>
+        </div>
+        <div id="node-modal-pills" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;">
+          <!-- Category Pills populated dynamically -->
+        </div>
+      </div>
+
+      <div id="node-selector-list" class="node-selector-list">
+        <!-- Node items populated dynamically -->
+      </div>
+
+      <div style="padding: 10px 16px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.2); font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+        <span>Tip: You can also click directly on any node in 2D or 3D view.</span>
+        <span id="node-modal-count">0 nodes</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Relocation Mode HUD Panel -->
+  <div id="teleport-panel" class="teleport-hud" style="display: none;">
+    <div class="teleport-hud-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="teleport-dot" id="relocate-status-dot"></span>
+        <span id="relocate-hud-title" style="font-weight: 700; color: #00d2ff; text-transform: uppercase; font-size: 11px; letter-spacing: 0.8px;">Pioneer Relocation Mode</span>
+      </div>
+      <button class="close-hud-btn" onclick="cancelRelocation()" title="Cancel Relocation">&times;</button>
+    </div>
+    <div class="teleport-hud-body" style="display: flex; flex-direction: column; gap: 10px;">
+      <p class="teleport-hint" id="relocate-hud-hint">Click anywhere on the map (2D or 3D) to place the target destination, or drag the reticle marker.</p>
+      <div class="teleport-coords-grid">
+        <div class="coord-box">
+          <label>X (cm)</label>
+          <input type="number" id="teleport-x" step="100" onchange="syncManualCoords()">
+        </div>
+        <div class="coord-box">
+          <label>Y (cm)</label>
+          <input type="number" id="teleport-y" step="100" onchange="syncManualCoords()">
+        </div>
+        <div class="coord-box">
+          <label>Z (cm)</label>
+          <input type="number" id="teleport-z" step="100" onchange="syncManualCoords()">
+        </div>
+      </div>
+
+      <!-- Custom Tilt & Orientation Fine-Tuning Grid (Visible when moving nodes) -->
+      <div id="teleport-tilt-container" style="display: none; flex-direction: column; gap: 7px; padding: 9px 11px; background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; font-weight: 700; color: #00d2ff; text-transform: uppercase; letter-spacing: 0.6px;">Custom Tilt & Heading</span>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn-tilt-quick" onclick="resetTiltLevel()" title="Reset Pitch and Roll to 0° (Completely Level / Upright)">Level (0°)</button>
+            <button type="button" class="btn-tilt-quick" onclick="sampleSlopeToTilt()" title="Sample hillside incline into Pitch and Roll angles">Sample Slope</button>
+          </div>
+        </div>
+        <div class="teleport-coords-grid">
+          <div class="coord-box">
+            <label title="Tilt forward/backward">Pitch (°)</label>
+            <input type="number" id="teleport-pitch" step="0.5" value="0" oninput="syncManualRotation()">
+          </div>
+          <div class="coord-box">
+            <label title="Tilt left/right">Roll (°)</label>
+            <input type="number" id="teleport-roll" step="0.5" value="0" oninput="syncManualRotation()">
+          </div>
+          <div class="coord-box">
+            <label title="Compass heading (Yaw)">Yaw (°)</label>
+            <input type="number" id="teleport-yaw" step="1" value="0" oninput="syncManualRotation()">
+          </div>
+        </div>
+      </div>
+
+      <div class="teleport-actions">
+        <button class="btn-clamp-ground" onclick="autoClampGroundElevation()" title="Sample terrain heightmap and snap Z directly to ground level">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/></svg>
+          Go to Ground
+        </button>
+        <button class="btn-apply-teleport" id="btn-apply-relocation" onclick="applyCurrentRelocation()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Confirm Move
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="notification-toast" class="notification-toast">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00d2ff" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <span id="notification-toast-text">Success</span>
   </div>
 
   <!-- Drag and Drop Overlay -->
@@ -922,6 +1476,824 @@
       document.getElementById('hud-zoom').innerText = map.getZoom().toFixed(2);
     });
 
+    // 2D Map Click for Player Relocation
+    map.on('click', (e) => {
+      if (!window.teleportModeActive) return;
+      const ue = latLngToUe(e.latlng.lat, e.latlng.lng);
+      const groundZ = getGroundElevationCm(ue.x, ue.y);
+      window.setTeleportTarget(ue.x, ue.y, groundZ);
+    });
+
+    let teleportMarker2d = null;
+    let ghostSatellite2dMarkers = [];
+    let currentRelocation = null;
+    let isSaveModified = false;
+
+    window.teleportModeActive = false;
+    let matchSlopeActive = true;
+
+    function markSaveAsModified() {
+      isSaveModified = true;
+      const badge = document.getElementById('save-modified-badge');
+      const dlBtn = document.getElementById('btn-download-save');
+      if (badge) badge.style.display = 'inline-block';
+      if (dlBtn) dlBtn.classList.add('has-changes');
+    }
+
+    function getGroundElevationCm(ueX, ueY) {
+      if (typeof window.sampleTerrainElevationMeters === 'function') {
+        const elevMeters = window.sampleTerrainElevationMeters(ueX / 100.0, ueY / 100.0);
+        if (!Number.isNaN(elevMeters) && elevMeters !== 0.0) {
+          return Math.round((elevMeters * 100.0) + 120.0);
+        }
+      }
+      if (worldData && worldData.player && worldData.player.transform) {
+        return Math.round(worldData.player.transform.translation[2]);
+      }
+      return 3000;
+    }
+
+    function getGroundNormal(ueX, ueY) {
+      if (typeof window.sampleTerrainElevationMeters !== 'function') {
+        return { x: 0, y: 0, z: 1 };
+      }
+      const mx = ueX / 100.0;
+      const my = ueY / 100.0;
+      const delta = 5.0; // 5 meters finite difference step
+      const hL = window.sampleTerrainElevationMeters(mx - delta, my);
+      const hR = window.sampleTerrainElevationMeters(mx + delta, my);
+      const hD = window.sampleTerrainElevationMeters(mx, my - delta);
+      const hU = window.sampleTerrainElevationMeters(mx, my + delta);
+
+      const dhdx = (hR - hL) / (2.0 * delta);
+      const dhdy = (hU - hD) / (2.0 * delta);
+
+      // In UE coordinates: X is forward, Y is right, Z is up.
+      // Surface gradient: n = (-dh/dx, -dh/dy, 1) normalized
+      let nx = -dhdx;
+      let ny = -dhdy;
+      let nz = 1.0;
+      const len = Math.hypot(nx, ny, nz);
+      if (len > 1e-6) {
+        nx /= len;
+        ny /= len;
+        nz /= len;
+      } else {
+        nx = 0; ny = 0; nz = 1;
+      }
+      return { x: nx, y: ny, z: nz };
+    }
+
+    // Convert UE Euler angles (Pitch, Roll, Yaw in degrees) into Unreal Quaternion [x, y, z, w]
+    function eulerToUeQuat(pitchDeg, rollDeg, yawDeg) {
+      const rad = Math.PI / 180.0;
+      const halfP = (pitchDeg * rad) * 0.5;
+      const halfR = (rollDeg * rad) * 0.5;
+      const halfY = (yawDeg * rad) * 0.5;
+
+      const sp = Math.sin(halfP), cp = Math.cos(halfP);
+      const sr = Math.sin(halfR), cr = Math.cos(halfR);
+      const sy = Math.sin(halfY), cy = Math.cos(halfY);
+
+      // In UE: Yaw around Z, then Pitch around Y, then Roll around X
+      const qx = sr * cp * cy - cr * sp * sy;
+      const qy = cr * sp * cy + sr * cp * sy;
+      const qz = cr * cp * sy - sr * sp * cy;
+      const qw = cr * cp * cy + sr * sp * sy;
+
+      const len = Math.hypot(qx, qy, qz, qw);
+      return len > 1e-6 ? [qx / len, qy / len, qz / len, qw / len] : [0, 0, 0, 1];
+    }
+
+    // Convert Unreal Quaternion [x, y, z, w] into UE Euler angles { pitch, roll, yaw } in degrees
+    function ueQuatToEuler(q) {
+      if (!q || q.length < 4) return { pitch: 0, roll: 0, yaw: 0 };
+      const [x, y, z, w] = q;
+      const radToDeg = 180.0 / Math.PI;
+
+      // Forward vector: Q * (1, 0, 0)
+      const fx = 1.0 - 2.0 * (y * y + z * z);
+      const fy = 2.0 * (x * y + w * z);
+      const fz = 2.0 * (x * z - w * y);
+
+      const yaw = Math.atan2(fy, fx) * radToDeg;
+      const horizDist = Math.hypot(fx, fy);
+      const pitch = Math.atan2(-fz, horizDist) * radToDeg;
+
+      // Up vector: Q * (0, 0, 1) and Right vector: Q * (0, 1, 0)
+      const rz = 2.0 * (y * z + w * x);
+      const uz = 1.0 - 2.0 * (x * x + y * y);
+      const roll = Math.atan2(rz, uz) * radToDeg;
+
+      return {
+        pitch: Math.round(pitch * 10) / 10,
+        roll: Math.round(roll * 10) / 10,
+        yaw: Math.round(yaw * 10) / 10
+      };
+    }
+
+    function getCurrentTiltRotation() {
+      if (!currentRelocation || currentRelocation.type !== 'node') return null;
+      const pitchDeg = parseFloat(document.getElementById('teleport-pitch').value) || 0;
+      const rollDeg = parseFloat(document.getElementById('teleport-roll').value) || 0;
+      const yawDeg = parseFloat(document.getElementById('teleport-yaw').value) || 0;
+      return eulerToUeQuat(pitchDeg, rollDeg, yawDeg);
+    }
+
+    function syncManualRotation() {
+      const q = getCurrentTiltRotation();
+      if (typeof window.update3dTeleportBeaconOrientation === 'function' && q) {
+        window.update3dTeleportBeaconOrientation(q);
+      }
+    }
+
+    function resetTiltLevel() {
+      const pInput = document.getElementById('teleport-pitch');
+      const rInput = document.getElementById('teleport-roll');
+      if (pInput) pInput.value = 0;
+      if (rInput) rInput.value = 0;
+      syncManualRotation();
+      showNotification('Tilt reset to Level (0° Pitch, 0° Roll)');
+    }
+
+    function sampleSlopeToTilt() {
+      const tx = parseFloat(document.getElementById('teleport-x').value) || 0;
+      const ty = parseFloat(document.getElementById('teleport-y').value) || 0;
+      const normal = getGroundNormal(tx, ty);
+
+      const radToDeg = 180.0 / Math.PI;
+      const pitchDeg = Math.round(Math.atan2(-normal.x, normal.z) * radToDeg * 10) / 10;
+      const rollDeg = Math.round(Math.atan2(-normal.y, normal.z) * radToDeg * 10) / 10;
+
+      const pInput = document.getElementById('teleport-pitch');
+      const rInput = document.getElementById('teleport-roll');
+      if (pInput) pInput.value = pitchDeg;
+      if (rInput) rInput.value = rollDeg;
+
+      syncManualRotation();
+      showNotification(`Sampled hillside slope: Pitch ${pitchDeg}°, Roll ${rollDeg}°`);
+    }
+
+    window.setTeleportTarget = function(ueX, ueY, ueZ) {
+      const tx = document.getElementById('teleport-x');
+      const ty = document.getElementById('teleport-y');
+      const tz = document.getElementById('teleport-z');
+      if (tx) tx.value = Math.round(ueX);
+      if (ty) ty.value = Math.round(ueY);
+      if (tz) tz.value = Math.round(ueZ);
+
+      // Update 2D draggable marker
+      const latLng = ueToLatLng(ueX, ueY);
+      if (!teleportMarker2d) {
+        teleportMarker2d = L.marker(latLng, {
+          icon: teleportReticleIcon,
+          draggable: true,
+          zIndexOffset: 2500
+        }).addTo(map);
+
+        teleportMarker2d.on('drag', (ev) => {
+          const pos = ev.target.getLatLng();
+          const ue = latLngToUe(pos.lat, pos.lng);
+          const gz = getGroundElevationCm(ue.x, ue.y);
+          if (tx) tx.value = Math.round(ue.x);
+          if (ty) ty.value = Math.round(ue.y);
+          if (tz) tz.value = Math.round(gz);
+
+          updateGhostSatellites2d(ue.x, ue.y);
+          if (typeof window.update3dTeleportBeacon === 'function') {
+            const sats = (currentRelocation && currentRelocation.isCore) ? currentRelocation.satellites : null;
+            const qRot = getCurrentTiltRotation();
+            window.update3dTeleportBeacon(ue.x, ue.y, gz, true, sats, qRot);
+          }
+        });
+      } else {
+        teleportMarker2d.setLatLng(latLng);
+        if (!map.hasLayer(teleportMarker2d)) {
+          teleportMarker2d.addTo(map);
+        }
+      }
+
+      updateGhostSatellites2d(ueX, ueY);
+
+      // Update 3D beacon
+      if (typeof window.update3dTeleportBeacon === 'function') {
+        const sats = (currentRelocation && currentRelocation.isCore) ? currentRelocation.satellites : null;
+        const qRot = getCurrentTiltRotation();
+        window.update3dTeleportBeacon(ueX, ueY, ueZ, true, sats, qRot);
+      }
+    };
+
+    function updateGhostSatellites2d(coreX, coreY) {
+      ghostSatellite2dMarkers.forEach(m => {
+        if (map.hasLayer(m)) map.removeLayer(m);
+      });
+      ghostSatellite2dMarkers = [];
+
+      if (currentRelocation && currentRelocation.isCore && currentRelocation.satellites) {
+        for (const sat of currentRelocation.satellites) {
+          const sx = coreX + sat.relX;
+          const sy = coreY + sat.relY;
+          const satLatLng = ueToLatLng(sx, sy);
+          const gm = L.circleMarker(satLatLng, {
+            radius: 5,
+            color: '#00d2ff',
+            dashArray: '3, 3',
+            fillColor: '#00d2ff',
+            fillOpacity: 0.45,
+            weight: 1.5,
+            interactive: false
+          }).addTo(map);
+          ghostSatellite2dMarkers.push(gm);
+        }
+      }
+    }
+
+    function autoClampGroundElevation() {
+      const tx = document.getElementById('teleport-x');
+      const ty = document.getElementById('teleport-y');
+      const tz = document.getElementById('teleport-z');
+      if (tx && ty && tz) {
+        const x = parseFloat(tx.value);
+        const y = parseFloat(ty.value);
+        if (!Number.isNaN(x) && !Number.isNaN(y)) {
+          const groundZ = getGroundElevationCm(x, y);
+          window.setTeleportTarget(x, y, groundZ);
+          showNotification(`Go to Ground: Elevation snapped to ${Math.round(groundZ)} cm (${(groundZ/100).toFixed(1)}m)`);
+        }
+      }
+    }
+
+    function syncManualCoords() {
+      const tx = document.getElementById('teleport-x');
+      const ty = document.getElementById('teleport-y');
+      const tz = document.getElementById('teleport-z');
+      if (tx && ty && tz) {
+        const x = parseFloat(tx.value);
+        const y = parseFloat(ty.value);
+        const z = parseFloat(tz.value);
+        if (!Number.isNaN(x) && !Number.isNaN(y) && !Number.isNaN(z)) {
+          window.setTeleportTarget(x, y, z);
+        }
+      }
+    }
+
+    let selectedModalCategory = 'ALL';
+
+    window.toggleNodeSelectionMode = async function() {
+      if (window.teleportModeActive && currentRelocation && currentRelocation.type === 'node') {
+        cancelRelocation();
+        return;
+      }
+
+      if (!worldData || !worldData.resource_nodes || worldData.resource_nodes.length === 0) {
+        const select = document.getElementById('save-select');
+        if (select && select.value && select.value !== '__upload__') {
+          await loadSpecificSave(select.value);
+        } else {
+          showNotification('Please load or select a save file first.');
+          return;
+        }
+      }
+
+      window.nodeSelectMode = true;
+      const nBtn = document.getElementById('btn-node-toggle');
+      if (nBtn) {
+        nBtn.classList.add('active');
+        nBtn.style.background = '#00d2ff';
+        nBtn.style.borderColor = '#00d2ff';
+        nBtn.style.color = '#111';
+      }
+      showNotification('Click any resource node on the map (2D or 3D) to select and move it.');
+    };
+
+    window.openNodeSelectorModal = async function(categoryFilter) {
+      if (!worldData || !worldData.resource_nodes || worldData.resource_nodes.length === 0) {
+        const select = document.getElementById('save-select');
+        if (select && select.value && select.value !== '__upload__') {
+          await loadSpecificSave(select.value);
+        } else {
+          showNotification('Please load or select a save file first.');
+          return;
+        }
+      }
+      selectedModalCategory = categoryFilter || 'ALL';
+      const searchInput = document.getElementById('node-modal-search');
+      if (searchInput) searchInput.value = '';
+
+      populateNodeModalPills();
+      renderNodeSelectorList();
+
+      const modal = document.getElementById('node-selector-modal');
+      if (modal) modal.style.display = 'flex';
+      if (searchInput) searchInput.focus();
+    };
+
+    window.closeNodeSelectorModal = function() {
+      const modal = document.getElementById('node-selector-modal');
+      if (modal) modal.style.display = 'none';
+    };
+
+    window.handleNodeModalBackdropClick = function(e) {
+      if (e.target && e.target.id === 'node-selector-modal') {
+        closeNodeSelectorModal();
+      }
+    };
+
+    window.openNodeSelectorForCategory = function(catName) {
+      openNodeSelectorModal(catName);
+    };
+
+    window.startMapPickMode = function() {
+      closeNodeSelectorModal();
+      window.nodeSelectMode = true;
+      const nBtn = document.getElementById('btn-node-toggle');
+      if (nBtn) {
+        nBtn.classList.add('active');
+        nBtn.style.background = '#00d2ff';
+        nBtn.style.borderColor = '#00d2ff';
+        nBtn.style.color = '#111';
+      }
+      showNotification('Click any resource node marker on the 2D or 3D map to select and move it.');
+    };
+
+    function populateNodeModalPills() {
+      const pillsContainer = document.getElementById('node-modal-pills');
+      if (!pillsContainer || !worldData || !worldData.resource_nodes) return;
+
+      const counts = {};
+      let hasCores = false;
+      for (const n of worldData.resource_nodes) {
+        const cat = n.resource_name || 'Unknown';
+        counts[cat] = (counts[cat] || 0) + 1;
+        if (n.node_type === 'ResourceWellCore' || n.instance_name.includes('BP_FrackingCore')) {
+          hasCores = true;
+        }
+      }
+
+      const sortedCats = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+      let html = `<button class="category-pill ${selectedModalCategory === 'ALL' ? 'active' : ''}" onclick="selectNodeModalCategory('ALL')">All (${worldData.resource_nodes.length})</button>`;
+
+      if (hasCores) {
+        html += `<button class="category-pill ${selectedModalCategory === '__CORES__' ? 'active' : ''}" onclick="selectNodeModalCategory('__CORES__')">Well Cores</button>`;
+      }
+
+      for (const cat of sortedCats) {
+        const isAct = selectedModalCategory === cat;
+        html += `<button class="category-pill ${isAct ? 'active' : ''}" onclick="selectNodeModalCategory('${cat.replace(/'/g, "\\'")}')">${cat} (${counts[cat]})</button>`;
+      }
+      pillsContainer.innerHTML = html;
+    }
+
+    window.selectNodeModalCategory = function(cat) {
+      selectedModalCategory = cat;
+      populateNodeModalPills();
+      renderNodeSelectorList();
+    };
+
+    window.renderNodeSelectorList = function() {
+      const listEl = document.getElementById('node-selector-list');
+      const countEl = document.getElementById('node-modal-count');
+      const searchEl = document.getElementById('node-modal-search');
+      if (!listEl || !worldData || !worldData.resource_nodes) return;
+
+      const query = searchEl ? searchEl.value.trim().toLowerCase() : '';
+      let filtered = worldData.resource_nodes;
+
+      if (selectedModalCategory === '__CORES__') {
+        filtered = filtered.filter(n => n.node_type === 'ResourceWellCore' || n.instance_name.includes('BP_FrackingCore'));
+      } else if (selectedModalCategory !== 'ALL') {
+        filtered = filtered.filter(n => (n.resource_name || '') === selectedModalCategory);
+      }
+
+      if (query) {
+        filtered = filtered.filter(n => {
+          const rName = (n.resource_name || '').toLowerCase();
+          const purity = (n.purity || '').toLowerCase();
+          const inst = (n.instance_name || '').toLowerCase();
+          const mod = (n.mod_source || '').toLowerCase();
+          const type = (n.node_type || '').toLowerCase();
+          return rName.includes(query) || purity.includes(query) || inst.includes(query) || mod.includes(query) || type.includes(query);
+        });
+      }
+
+      if (countEl) countEl.innerText = `${filtered.length} nodes shown`;
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--text-muted); font-size: 13px;">No matching resource nodes found.</div>`;
+        return;
+      }
+
+      const displayNodes = filtered.slice(0, 150);
+      let itemsHtml = '';
+
+      for (const n of displayNodes) {
+        const rName = n.resource_name || 'Unknown';
+        const color = getResourceColor(rName);
+        const [nx, ny, nz] = n.transform.translation;
+        const purity = (n.purity || '').replace('RP_', '');
+        const isCore = n.node_type === 'ResourceWellCore' || n.instance_name.includes('BP_FrackingCore');
+        const isSat = n.node_type === 'ResourceWellSatellite' || n.instance_name.includes('BP_FrackingSatellite');
+
+        let typeBadge = '';
+        if (isCore) {
+          typeBadge = '<span class="mod-badge-well" style="background: rgba(0,210,255,0.25); border-color: #00d2ff; color: #00d2ff;">Fracking Core</span>';
+        } else if (isSat) {
+          typeBadge = '<span class="mod-badge-well">Satellite</span>';
+        } else if (n.node_type === 'Geyser') {
+          typeBadge = '<span class="mod-badge-geyser">Geyser</span>';
+        }
+
+        const purityBadge = purity ? `<span class="tooltip-purity purity-${purity.toLowerCase()}">${purity}</span>` : '';
+        const encName = encodeURIComponent(n.instance_name);
+
+        itemsHtml += `
+          <div class="node-list-item">
+            <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+              <div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></div>
+              <div style="min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: #fff;">
+                  <span>${rName}</span>
+                  ${purityBadge}
+                  ${typeBadge}
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); font-family: 'Fira Code', monospace;">
+                  X: ${Math.round(nx)}, Y: ${Math.round(ny)}, Z: ${Math.round(nz)}
+                </div>
+              </div>
+            </div>
+            <button class="btn-select-node-item" onclick="startNodeRelocation('${encName}')">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+              Select &amp; Move
+            </button>
+          </div>
+        `;
+      }
+
+      if (filtered.length > 150) {
+        itemsHtml += `<div style="text-align: center; padding: 8px; color: var(--text-muted); font-size: 11px;">Showing first 150 of ${filtered.length} nodes. Use search to filter.</div>`;
+      }
+
+      listEl.innerHTML = itemsHtml;
+    };
+
+    function startPioneerRelocation() {
+      currentRelocation = { type: 'player' };
+      window.teleportModeActive = true;
+      window.nodeSelectMode = false;
+      closeNodeSelectorModal();
+
+      const tiltCont = document.getElementById('teleport-tilt-container');
+      if (tiltCont) tiltCont.style.display = 'none';
+
+      const btnP = document.getElementById('btn-teleport-toggle');
+      if (btnP) {
+        btnP.classList.add('active');
+        btnP.style.background = 'var(--accent-orange)';
+        btnP.style.color = '#111';
+      }
+      const btnN = document.getElementById('btn-node-toggle');
+      if (btnN) {
+        btnN.classList.remove('active');
+        btnN.style.background = '';
+        btnN.style.color = '';
+      }
+
+      const titleEl = document.getElementById('relocate-hud-title');
+      const hintEl = document.getElementById('relocate-hud-hint');
+      if (titleEl) titleEl.innerText = 'Pioneer Relocation Mode';
+      if (hintEl) hintEl.innerText = 'Click anywhere on the map (2D or 3D) to place the Pioneer destination, or drag the reticle marker.';
+
+      const panel = document.getElementById('teleport-panel');
+      if (panel) panel.style.display = 'flex';
+
+      let initX = 0, initY = 0, initZ = 3000;
+      if (worldData && worldData.player && worldData.player.transform) {
+        [initX, initY, initZ] = worldData.player.transform.translation;
+      }
+      window.setTeleportTarget(initX, initY, initZ);
+      if (window.currentViewMode === '2d' && teleportMarker2d) {
+        map.panTo(ueToLatLng(initX, initY));
+      } else if (window.currentViewMode === '3d' && typeof window.focus3dOnPoint === 'function') {
+        window.focus3dOnPoint(initX, initY, initZ);
+      }
+    }
+
+    window.startNodeRelocation = function(encodedInstanceName) {
+      const instanceName = decodeURIComponent(encodedInstanceName);
+      if (!worldData || !worldData.resource_nodes) return;
+
+      const node = worldData.resource_nodes.find(n => 
+        n.instance_name === instanceName ||
+        n.instance_name.endsWith(instanceName) ||
+        instanceName.endsWith(n.instance_name)
+      );
+      if (!node) {
+        alert('Node not found: ' + instanceName);
+        return;
+      }
+
+      closeNodeSelectorModal();
+
+      const isCore = node.node_type === 'ResourceWellCore' || node.instance_name.includes('BP_FrackingCore');
+      let satellites = [];
+
+      if (isCore) {
+        const corePos = node.transform.translation;
+        const radiusSq = 9000.0 * 9000.0;
+        satellites = worldData.resource_nodes.filter(other => {
+          if (other.instance_name === node.instance_name) return false;
+          const isSat = other.node_type === 'ResourceWellSatellite' || other.instance_name.includes('BP_FrackingSatellite');
+          if (!isSat) return false;
+          const dx = other.transform.translation[0] - corePos[0];
+          const dy = other.transform.translation[1] - corePos[1];
+          return (dx * dx + dy * dy) <= radiusSq;
+        }).map(sat => ({
+          instance_name: sat.instance_name,
+          relX: sat.transform.translation[0] - corePos[0],
+          relY: sat.transform.translation[1] - corePos[1],
+          relZ: sat.transform.translation[2] - corePos[2],
+        }));
+      }
+
+      const purity = (node.purity || '').replace('RP_', '');
+      currentRelocation = {
+        type: 'node',
+        instance_name: node.instance_name,
+        resource_name: node.resource_name || 'Node',
+        purity,
+        origRotation: (node.transform && node.transform.rotation) ? node.transform.rotation : [0, 0, 0, 1],
+        isCore,
+        satellites
+      };
+      window.teleportModeActive = true;
+      window.nodeSelectMode = false;
+
+      // Extract current orientation euler angles
+      const currentEuler = ueQuatToEuler((node.transform && node.transform.rotation) ? node.transform.rotation : [0, 0, 0, 1]);
+      const pInput = document.getElementById('teleport-pitch');
+      const rInput = document.getElementById('teleport-roll');
+      const yInput = document.getElementById('teleport-yaw');
+      if (pInput) pInput.value = 0; // Default level / upright
+      if (rInput) rInput.value = 0; // Default level / upright
+      if (yInput) yInput.value = Math.round(currentEuler.yaw);
+
+      const tiltCont = document.getElementById('teleport-tilt-container');
+      if (tiltCont) tiltCont.style.display = 'flex';
+
+      const btnP = document.getElementById('btn-teleport-toggle');
+      if (btnP) {
+        btnP.classList.remove('active');
+        btnP.style.background = '';
+        btnP.style.color = '';
+      }
+      const btnN = document.getElementById('btn-node-toggle');
+      if (btnN) {
+        btnN.classList.add('active');
+        btnN.style.background = '#00d2ff';
+        btnN.style.borderColor = '#00d2ff';
+        btnN.style.color = '#111';
+      }
+
+      const titleEl = document.getElementById('relocate-hud-title');
+      const hintEl = document.getElementById('relocate-hud-hint');
+      const purityLabel = purity ? ` [${purity}]` : '';
+      if (titleEl) {
+        titleEl.innerText = isCore
+          ? `Relocate: ${node.resource_name || 'Well Core'} (+ ${satellites.length} Satellites)`
+          : `Relocate: ${node.resource_name || 'Resource Node'}${purityLabel}`;
+      }
+      if (hintEl) {
+        hintEl.innerText = isCore
+          ? `Click anywhere on map (2D or 3D) or drag reticle. All ${satellites.length} satellites will automatically move together with the core.`
+          : 'Click anywhere on the map (2D or 3D) to place the new node location, or drag the reticle marker.';
+      }
+
+      const panel = document.getElementById('teleport-panel');
+      if (panel) panel.style.display = 'flex';
+
+      const [nx, ny, nz] = node.transform.translation;
+      window.setTeleportTarget(nx, ny, nz);
+      if (window.currentViewMode === '2d' && teleportMarker2d) {
+        map.panTo(ueToLatLng(nx, ny));
+      } else if (window.currentViewMode === '3d' && typeof window.focus3dOnPoint === 'function') {
+        window.focus3dOnPoint(nx, ny, nz);
+      }
+    };
+
+    function cancelRelocation() {
+      window.teleportModeActive = false;
+      window.nodeSelectMode = false;
+      currentRelocation = null;
+
+      const tiltCont = document.getElementById('teleport-tilt-container');
+      if (tiltCont) tiltCont.style.display = 'none';
+
+      const btnP = document.getElementById('btn-teleport-toggle');
+      if (btnP) {
+        btnP.classList.remove('active');
+        btnP.style.background = '';
+        btnP.style.color = '';
+      }
+      const btnN = document.getElementById('btn-node-toggle');
+      if (btnN) {
+        btnN.classList.remove('active');
+        btnN.style.background = '';
+        btnN.style.borderColor = '';
+        btnN.style.color = '';
+      }
+
+      closeNodeSelectorModal();
+
+      const panel = document.getElementById('teleport-panel');
+      if (panel) panel.style.display = 'none';
+
+      if (teleportMarker2d && map.hasLayer(teleportMarker2d)) {
+        map.removeLayer(teleportMarker2d);
+      }
+      ghostSatellite2dMarkers.forEach(m => {
+        if (map.hasLayer(m)) map.removeLayer(m);
+      });
+      ghostSatellite2dMarkers = [];
+
+      if (typeof window.update3dTeleportBeacon === 'function') {
+        window.update3dTeleportBeacon(0, 0, 0, false, null, null);
+      }
+    }
+
+    let toastTimer = null;
+    function showNotification(msg) {
+      const toast = document.getElementById('notification-toast');
+      const text = document.getElementById('notification-toast-text');
+      if (toast && text) {
+        text.innerText = msg;
+        toast.style.display = 'flex';
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toast.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    async function applyCurrentRelocation() {
+      if (!currentRelocation) return;
+
+      const posX = parseFloat(document.getElementById('teleport-x').value);
+      const posY = parseFloat(document.getElementById('teleport-y').value);
+      const posZ = parseFloat(document.getElementById('teleport-z').value);
+
+      if (Number.isNaN(posX) || Number.isNaN(posY) || Number.isNaN(posZ)) {
+        alert('Please specify valid X, Y, and Z coordinates.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-apply-relocation');
+      btn.disabled = true;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = `<div style="width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite;"></div> Saving...`;
+
+      if (currentRelocation.type === 'player') {
+        showLoading('Updating Pioneer coordinates in save...');
+        try {
+          const res = await fetch('/api/player/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: posX, y: posY, z: posZ })
+          });
+          if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err || 'Failed to move player');
+          }
+
+          if (worldData && worldData.player) {
+            worldData.player.transform.translation = [posX, posY, posZ];
+            if (playerMarker) {
+              playerMarker.setLatLng(ueToLatLng(posX, posY));
+              playerMarker.setTooltipContent(`
+                <div class="custom-tooltip">
+                  <div class="tooltip-title" style="color: #00d2ff;">
+                    <span>Pioneer Location</span>
+                  </div>
+                  <div class="tooltip-coords">X: ${posX.toFixed(1)}, Y: ${posY.toFixed(1)}, Z: ${posZ.toFixed(1)}</div>
+                </div>
+              `);
+            }
+            if (typeof window.rebuild3dWorld === 'function') {
+              window.rebuild3dWorld(worldData, true);
+            }
+          }
+
+          markSaveAsModified();
+          cancelRelocation();
+          showNotification(`Pioneer moved to [${posX.toFixed(0)}, ${posY.toFixed(0)}, ${posZ.toFixed(0)}]! Click 'Download Save' in the header to export.`);
+        } catch (err) {
+          alert('Error relocating Pioneer: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          hideLoading();
+        }
+      } else if (currentRelocation.type === 'node') {
+        showLoading('Updating resource node coordinates in save...');
+        try {
+          const pitchDeg = parseFloat(document.getElementById('teleport-pitch').value) || 0;
+          const rollDeg = parseFloat(document.getElementById('teleport-roll').value) || 0;
+          const yawDeg = parseFloat(document.getElementById('teleport-yaw').value) || 0;
+          const customRot = eulerToUeQuat(pitchDeg, rollDeg, yawDeg);
+
+          const nodePayload = {
+            instance_name: currentRelocation.instance_name,
+            x: posX,
+            y: posY,
+            z: posZ,
+            rotation: customRot
+          };
+
+          const res = await fetch('/api/node/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nodePayload)
+          });
+          if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err || 'Failed to move node');
+          }
+          const data = await res.json();
+
+          if (worldData && worldData.resource_nodes && data.moved_nodes) {
+            for (const moved of data.moved_nodes) {
+              const localNode = worldData.resource_nodes.find(n => 
+                n.instance_name === moved.instance_name ||
+                n.instance_name.endsWith(moved.instance_name) ||
+                moved.instance_name.endsWith(n.instance_name)
+              );
+              if (localNode) {
+                localNode.transform.translation = moved.transform.translation;
+                if (moved.transform && moved.transform.rotation) {
+                  localNode.transform.rotation = moved.transform.rotation;
+                }
+              }
+            }
+            renderWorld(worldData, true);
+            if (typeof window.rebuild3dWorld === 'function') {
+              window.rebuild3dWorld(worldData, true);
+            }
+          }
+
+          markSaveAsModified();
+          cancelRelocation();
+          const count = data.moved_count || 1;
+          const tiltMsg = (pitchDeg !== 0 || rollDeg !== 0) ? ` (Tilt: ${pitchDeg}°/${rollDeg}°)` : ' (Level)';
+          const msg = count > 1
+            ? `Resource Well Core & ${count - 1} Satellites relocated${tiltMsg}! Click 'Download Save' in header to export.`
+            : `Resource node relocated${tiltMsg}! Click 'Download Save' in header to export.`;
+          showNotification(msg);
+        } catch (err) {
+          alert('Error relocating node: ' + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+          hideLoading();
+        }
+      }
+    }
+
+    async function downloadActiveSave() {
+      const btn = document.getElementById('btn-download-save');
+      btn.disabled = true;
+      showLoading('Preparing modified .sav download...');
+      try {
+        const res = await fetch('/api/save/download');
+        if (!res.ok) throw new Error('Failed downloading save file');
+
+        let filename = 'modified_save.sav';
+        const disp = res.headers.get('content-disposition');
+        if (disp && disp.includes('filename=')) {
+          const match = disp.match(/filename="?([^";]+)"?/);
+          if (match && match[1]) filename = match[1].trim();
+        } else {
+          const customHdr = res.headers.get('x-save-filename');
+          if (customHdr) filename = customHdr.trim();
+        }
+
+        const blob = await res.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+
+        showNotification(`Downloaded ${filename} successfully!`);
+      } catch (err) {
+        alert('Download error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        hideLoading();
+      }
+    }
+
     function showLoading(msg) {
       const el = document.getElementById('loading-indicator');
       const txt = document.getElementById('loading-text');
@@ -931,10 +2303,14 @@
 
     function hideLoading() {
       const el = document.getElementById('loading-indicator');
+      const txt = document.getElementById('loading-text');
       if (el) el.style.display = 'none';
     }
 
-    function flushWorldState() {
+    function flushWorldState(preserveView = false) {
+      // 0. Reset relocation state
+      cancelRelocation();
+
       // 1. Clear all entity layer groups
       layerGroups.player.clearLayers();
       layerGroups.somersloops.clearLayers();
@@ -951,46 +2327,47 @@
       }
       layerGroups.nodesByCategory = {};
 
-      // 3. Remove the landmass map layer from the map
-      if (landmassLayer && map.hasLayer(landmassLayer)) {
+      // 3. Remove the landmass map layer from the map if not preserving view
+      if (!preserveView && landmassLayer && map.hasLayer(landmassLayer)) {
         map.removeLayer(landmassLayer);
       }
 
-      // 4. Reset metadata in HUD
-      document.getElementById('meta-session').innerText = 'No save loaded';
-      document.getElementById('meta-seed').innerText = '-';
-      document.getElementById('meta-size').innerText = '-';
-      document.getElementById('meta-time').innerText = '-';
-      document.getElementById('meta-nodes').innerText = '0';
-      document.getElementById('meta-pods').innerText = '0';
-      document.getElementById('meta-sloops').innerText = '0';
-      document.getElementById('meta-spheres').innerText = '0';
-      document.getElementById('count-somersloops').innerText = '0';
-      document.getElementById('count-mercerspheres').innerText = '0';
-      document.getElementById('count-droppods').innerText = '0';
-      document.getElementById('count-deposits').innerText = '0';
+      // 4. Reset metadata in HUD if not preserving view
+      if (!preserveView) {
+        document.getElementById('meta-session').innerText = 'No save loaded';
+        document.getElementById('meta-seed').innerText = '-';
+        document.getElementById('meta-size').innerText = '-';
+        document.getElementById('meta-time').innerText = '-';
+        document.getElementById('meta-nodes').innerText = '0';
+        document.getElementById('meta-pods').innerText = '0';
+        document.getElementById('meta-sloops').innerText = '0';
+        document.getElementById('meta-spheres').innerText = '0';
+        document.getElementById('count-somersloops').innerText = '0';
+        document.getElementById('count-mercerspheres').innerText = '0';
+        document.getElementById('count-droppods').innerText = '0';
+        document.getElementById('count-deposits').innerText = '0';
 
-      // 5. Reset sidebar filter list
-      const listEl = document.getElementById('nodes-filter-list');
-      if (listEl) {
-        listEl.innerHTML = '<div style="padding: 18px 12px; color: var(--text-muted); font-size: 11px; text-align: center; line-height: 1.5;">No save loaded.<br>Select or upload a save to inspect resources.</div>';
+        // 5. Reset sidebar filter list
+        const listEl = document.getElementById('nodes-filter-list');
+        if (listEl) {
+          listEl.innerHTML = '<div style="padding: 18px 12px; color: var(--text-muted); font-size: 11px; text-align: center; line-height: 1.5;">No save loaded.<br>Select or upload a save to inspect resources.</div>';
+        }
+
+        // 6. Reset search input and data
+        const searchEl = document.getElementById('resource-search');
+        if (searchEl) searchEl.value = '';
+
+        playerMarker = null;
+        if (window.flush3dScene) window.flush3dScene();
+
+        // 7. Reset map view & invalidate size
+        map.setView([0, 0], -2);
+        map.invalidateSize();
+
+        // 8. Show empty state overlay if present
+        const emptyCard = document.getElementById('empty-state-overlay');
+        if (emptyCard) emptyCard.style.display = 'flex';
       }
-
-      // 6. Reset search input and data
-      const searchEl = document.getElementById('resource-search');
-      if (searchEl) searchEl.value = '';
-
-      worldData = null;
-      playerMarker = null;
-      if (window.flush3dScene) window.flush3dScene();
-
-      // 7. Reset map view & invalidate size
-      map.setView([0, 0], -2);
-      map.invalidateSize();
-
-      // 8. Show empty state overlay if present
-      const emptyCard = document.getElementById('empty-state-overlay');
-      if (emptyCard) emptyCard.style.display = 'flex';
     }
 
     async function loadWorldData() {
@@ -1005,13 +2382,20 @@
       await loadSpecificSave(currentSave);
     }
 
-    function renderWorld(data) {
+    function renderWorld(data, preserveView = false) {
       if (!data) return;
 
-      // 1. Flush previous state cleanly before rendering new save
-      flushWorldState();
+      const prevCenter = (preserveView && map) ? map.getCenter() : null;
+      const prevZoom = (preserveView && map) ? map.getZoom() : null;
 
-      // 2. Hide the empty state overlay
+      // 1. Flush previous state cleanly before rendering new save
+      flushWorldState(preserveView);
+
+      // 2. Store active worldData
+      worldData = data;
+      window.worldData = data;
+
+      // 3. Hide the empty state overlay
       const emptyCard = document.getElementById('empty-state-overlay');
       if (emptyCard) emptyCard.style.display = 'none';
 
@@ -1190,6 +2574,36 @@
             </div>
           `, { direction: 'top', className: 'custom-tooltip' });
 
+          const nodePopupHtml = `
+            <div class="custom-tooltip" style="min-width: 220px; pointer-events: auto;">
+              <div class="tooltip-title">
+                <span style="color: ${rColor};">●</span>
+                <span>${rawName}</span>
+                ${badgeHtml}
+                ${purity ? `<span class="tooltip-purity ${purityClass}">${purity}</span>` : ''}
+              </div>
+              <div class="tooltip-coords">X: ${nx.toFixed(0)}, Y: ${ny.toFixed(0)}, Z: ${nz.toFixed(0)}</div>
+              <div style="font-size: 11px; color: #00d2ff; margin-top: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+                ${node.node_type === 'ResourceWellCore' ? 'Core Selected (+ Satellites) • Click map to move' : 'Node Selected • Click map to move'}
+              </div>
+            </div>
+          `;
+          marker.bindPopup(nodePopupHtml, { className: 'custom-popup', maxWidth: 280 });
+
+          // Clicking any node on the map immediately opens the Move Dialog and node popup
+          marker.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            marker.closeTooltip();
+            startNodeRelocation(node.instance_name);
+            marker.openPopup();
+          });
+          marker.on('dblclick', (e) => {
+            L.DomEvent.stopPropagation(e);
+            marker.closeTooltip();
+            startNodeRelocation(node.instance_name);
+          });
+
           layerGroups.nodesByCategory[rawName].addLayer(marker);
         }
       }
@@ -1228,17 +2642,21 @@
         landmassLayer.bringToBack();
       }
 
-      // 8. Center and Fit map to World Bounds
-      if (data.world_bounds) {
-        const b = data.world_bounds;
-        const corner1 = ueToLatLng(b.min_x, b.min_y);
-        const corner2 = ueToLatLng(b.max_x, b.max_y);
-        map.fitBounds([corner1, corner2], { padding: [50, 50], animate: false });
+      // 8. Center and Fit map to World Bounds only when NOT preserving view
+      if (!preserveView) {
+        if (data.world_bounds) {
+          const b = data.world_bounds;
+          const corner1 = ueToLatLng(b.min_x, b.min_y);
+          const corner2 = ueToLatLng(b.max_x, b.max_y);
+          map.fitBounds([corner1, corner2], { padding: [50, 50], animate: false });
+        }
+      } else if (prevCenter && prevZoom !== null && prevZoom !== undefined) {
+        map.setView(prevCenter, prevZoom, { animate: false });
       }
       map.invalidateSize();
 
       if (window.rebuild3dWorld) {
-        window.rebuild3dWorld(data);
+        window.rebuild3dWorld(data, preserveView);
       }
     }
 
@@ -1279,7 +2697,12 @@
             <span class="filter-name">${name}</span>
             ${badgeTag}
           </div>
-          <span class="filter-count">${count}</span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span class="filter-count">${count}</span>
+            <button class="btn-sidebar-relocate" onclick="event.preventDefault(); event.stopPropagation(); openNodeSelectorForCategory('${escapedName}')" title="Select &amp; Relocate ${escapedName} nodes">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+            </button>
+          </div>
         `;
         listEl.appendChild(item);
       }
@@ -1540,6 +2963,12 @@
         uploadOpt.value = '__upload__';
         uploadOpt.text = '➕ Load other save file...';
         select.appendChild(uploadOpt);
+
+        // Auto-load the active save if worldData is not loaded yet
+        const activeSave = saves.find(s => s.is_active);
+        if (activeSave && !worldData) {
+          await loadSpecificSave(activeSave.filename);
+        }
       } catch (err) {
         console.error('Failed to fetch saves list:', err);
       }
@@ -1740,6 +3169,51 @@
       // Double click: smoothly fly and zoom into specific area or node
       renderer.domElement.addEventListener('dblclick', on3dDoubleClick);
 
+      // Single click on 3D terrain for Pioneer relocation
+      let pointerDownPos = { x: 0, y: 0 };
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        pointerDownPos.x = e.clientX;
+        pointerDownPos.y = e.clientY;
+      });
+      renderer.domElement.addEventListener('pointerup', (e) => {
+        if (window.currentViewMode !== '3d') return;
+        const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+        if (dist > 5) return; // User was dragging the orbit camera
+
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointerNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointerNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointerNDC, camera);
+
+        // 1. Raycast against pickable 3D resource nodes
+        const visibleMeshes = pickableInstancedMeshes.filter(m => m.parent && m.parent.visible);
+        const nodeHits = raycaster.intersectObjects(visibleMeshes, false);
+        if (nodeHits.length > 0 && nodeHits[0].instanceId !== undefined) {
+          const hit = nodeHits[0];
+          const item = hit.object.userData.items ? hit.object.userData.items[hit.instanceId] : null;
+          if (item && item.instance_name) {
+            window.startNodeRelocation(item.instance_name);
+            return;
+          }
+        }
+
+        // 2. If relocation is active, raycast terrain to place destination target
+        if (window.teleportModeActive) {
+          if (terrainMesh && terrainMesh.visible) {
+            const hits = raycaster.intersectObject(terrainMesh, false);
+            if (hits.length > 0) {
+              const pt = hits[0].point;
+              const ueX = pt.x * 100.0;
+              const ueY = pt.z * 100.0;
+              const ueZ = (pt.y / verticalScale) * 100.0 + 120.0;
+              if (typeof window.setTeleportTarget === 'function') {
+                window.setTeleportTarget(ueX, ueY, ueZ);
+              }
+            }
+          }
+        }
+      });
+
       window.addEventListener('resize', on3dWindowResize);
       requestAnimationFrame(animate3d);
     }
@@ -1764,6 +3238,150 @@
       const h = hmRawMeters[gy * hmHeader.w + gx];
       return Number.isNaN(h) ? 0.0 : h;
     }
+    window.sampleTerrainElevationMeters = sampleTerrainElevationMeters;
+
+    let teleportBeaconGroup = null;
+
+    function getOrCreateTeleportBeacon() {
+      if (teleportBeaconGroup) return teleportBeaconGroup;
+      teleportBeaconGroup = new THREE.Group();
+
+      // Vertical laser beam
+      const beamGeom = new THREE.CylinderGeometry(8, 8, 450, 16);
+      beamGeom.translate(0, 225, 0);
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: 0x00d2ff,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const beamMesh = new THREE.Mesh(beamGeom, beamMat);
+      teleportBeaconGroup.add(beamMesh);
+
+      // Floor ring
+      const ringGeom = new THREE.RingGeometry(18, 30, 32);
+      ringGeom.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x00d2ff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85
+      });
+      const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+      ringMesh.position.y = 2;
+      teleportBeaconGroup.add(ringMesh);
+
+      // Floating diamond
+      const diamondGeom = new THREE.OctahedronGeometry(18, 0);
+      const diamondMat = new THREE.MeshStandardMaterial({
+        color: 0x00d2ff,
+        emissive: 0x005588,
+        roughness: 0.2,
+        metalness: 0.8
+      });
+      const diamondMesh = new THREE.Mesh(diamondGeom, diamondMat);
+      diamondMesh.position.y = 75;
+      teleportBeaconGroup.add(diamondMesh);
+
+      teleportBeaconGroup.visible = false;
+      scene.add(teleportBeaconGroup);
+      return teleportBeaconGroup;
+    }
+
+    let beaconSatsGroup = null;
+
+    function applyQuatToThreeBeacon(beacon, qUe) {
+      if (!beacon) return;
+      if (!qUe || qUe.length < 4) {
+        beacon.quaternion.set(0, 0, 0, 1);
+        return;
+      }
+      const [x, y, z, w] = qUe;
+
+      // In UE:
+      // Forward vector = Q * (1, 0, 0)
+      const fx = 1.0 - 2.0 * (y * y + z * z);
+      const fy = 2.0 * (x * y + w * z);
+      const fz = 2.0 * (x * z - w * y);
+
+      // Up vector = Q * (0, 0, 1)
+      const ux = 2.0 * (x * z + w * y);
+      const uy = 2.0 * (y * z - w * x);
+      const uz = 1.0 - 2.0 * (x * x + y * y);
+
+      // In Three.js: X is UE X, Z is UE Y, Y is UE Z (up)
+      const fThree = new THREE.Vector3(fx, fz, fy).normalize();
+      const uThree = new THREE.Vector3(ux, uz, uy).normalize();
+      const rThree = new THREE.Vector3().crossVectors(fThree, uThree).normalize();
+
+      const m = new THREE.Matrix4();
+      m.makeBasis(fThree, uThree, rThree);
+      beacon.quaternion.setFromRotationMatrix(m);
+    }
+
+    window.update3dTeleportBeaconOrientation = function(qUe) {
+      if (!scene || !teleportBeaconGroup) return;
+      applyQuatToThreeBeacon(teleportBeaconGroup, qUe);
+    };
+
+    window.update3dTeleportBeacon = function(ueX, ueY, ueZ, visible, satellites, qRot) {
+      if (!scene) return;
+      const beacon = getOrCreateTeleportBeacon();
+      beacon.visible = visible;
+      if (visible) {
+        const wx = ueX / 100.0;
+        const wz = ueY / 100.0;
+        const wy = (ueZ / 100.0) * verticalScale;
+        beacon.position.set(wx, wy, wz);
+
+        if (qRot) {
+          applyQuatToThreeBeacon(beacon, qRot);
+        } else {
+          beacon.quaternion.set(0, 0, 0, 1);
+        }
+
+        if (beaconSatsGroup) {
+          beacon.remove(beaconSatsGroup);
+          beaconSatsGroup = null;
+        }
+
+        if (satellites && satellites.length > 0) {
+          beaconSatsGroup = new THREE.Group();
+          for (const sat of satellites) {
+            const relWx = sat.relX / 100.0;
+            const relWz = sat.relY / 100.0;
+            const relWy = (sat.relZ / 100.0) * verticalScale;
+
+            const satGeom = new THREE.CylinderGeometry(4, 4, 250, 12);
+            satGeom.translate(0, 125, 0);
+            const satMat = new THREE.MeshBasicMaterial({
+              color: 0x00d2ff,
+              transparent: true,
+              opacity: 0.35,
+              depthWrite: false,
+              side: THREE.DoubleSide
+            });
+            const satMesh = new THREE.Mesh(satGeom, satMat);
+            satMesh.position.set(relWx, relWy, relWz);
+            beaconSatsGroup.add(satMesh);
+
+            const ringGeom = new THREE.RingGeometry(8, 14, 20);
+            ringGeom.rotateX(-Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0x00d2ff,
+              side: THREE.DoubleSide,
+              transparent: true,
+              opacity: 0.7
+            });
+            const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+            ringMesh.position.set(relWx, relWy + 2, relWz);
+            beaconSatsGroup.add(ringMesh);
+          }
+          beacon.add(beaconSatsGroup);
+        }
+      }
+    };
 
     window.flush3dScene = function() {
       const tt = document.getElementById('tooltip-3d');
@@ -1797,54 +3415,94 @@
       groups3d.dropPods = null;
       groups3d.deposits = null;
       groups3d.nodesByCategory = {};
+
+      if (beaconSatsGroup && teleportBeaconGroup) {
+        teleportBeaconGroup.remove(beaconSatsGroup);
+        beaconSatsGroup = null;
+      }
+      if (teleportBeaconGroup) {
+        teleportBeaconGroup.visible = false;
+      }
     };
 
-    window.rebuild3dWorld = async function(data) {
+    window.rebuild3dWorld = async function(data, preserveCamera = false) {
       if (!data) return;
       ensure3dInitialized();
-      window.flush3dScene();
 
-      try {
-        // 1. Fetch binary heightmap (/api/heightmap.bin) & map texture (/api/map.png) concurrently
-        const cacheBust = Date.now();
-        const [hmRes, tex] = await Promise.all([
-          fetch('/api/heightmap.bin?t=' + cacheBust),
-          new THREE.TextureLoader().loadAsync('/api/map.png?t=' + cacheBust)
-        ]);
+      const prevPos = (preserveCamera && camera) ? camera.position.clone() : null;
+      const prevTarget = (preserveCamera && controls) ? controls.target.clone() : null;
 
-        if (hmRes.ok) {
-          const buf = await hmRes.arrayBuffer();
-          const dv = new DataView(buf);
-          const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
-          if (magic === 'PWHM') {
-            const w = dv.getUint32(4, true);
-            const h = dv.getUint32(8, true);
-            const minX = dv.getFloat32(12, true);
-            const maxX = dv.getFloat32(16, true);
-            const minY = dv.getFloat32(20, true);
-            const maxY = dv.getFloat32(24, true);
-            hmHeader = { w, h, minX, maxX, minY, maxY };
+      if (!preserveCamera || !terrainMesh) {
+        window.flush3dScene();
 
-            hmRawMeters = new Float32Array(w * h);
-            let byteOff = 28;
-            for (let i = 0; i < w * h; i++) {
-              const dm = dv.getInt16(byteOff, true);
-              byteOff += 2;
-              hmRawMeters[i] = (dm === -32768) ? NaN : (dm / 10.0);
+        try {
+          // 1. Fetch binary heightmap (/api/heightmap.bin) & map texture (/api/map.png) concurrently
+          const cacheBust = Date.now();
+          const [hmRes, tex] = await Promise.all([
+            fetch('/api/heightmap.bin?t=' + cacheBust),
+            new THREE.TextureLoader().loadAsync('/api/map.png?t=' + cacheBust)
+          ]);
+
+          if (hmRes.ok) {
+            const buf = await hmRes.arrayBuffer();
+            const dv = new DataView(buf);
+            const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+            if (magic === 'PWHM') {
+              const w = dv.getUint32(4, true);
+              const h = dv.getUint32(8, true);
+              const minX = dv.getFloat32(12, true);
+              const maxX = dv.getFloat32(16, true);
+              const minY = dv.getFloat32(20, true);
+              const maxY = dv.getFloat32(24, true);
+              hmHeader = { w, h, minX, maxX, minY, maxY };
+
+              hmRawMeters = new Float32Array(w * h);
+              let byteOff = 28;
+              for (let i = 0; i < w * h; i++) {
+                const dm = dv.getInt16(byteOff, true);
+                byteOff += 2;
+                hmRawMeters[i] = (dm === -32768) ? NaN : (dm / 10.0);
+              }
+
+              window.hmHeader = hmHeader;
+              window.hmRawMeters = hmRawMeters;
+
+              build3dTerrainMesh(tex);
             }
-
-            build3dTerrainMesh(tex);
           }
+        } catch (err) {
+          console.error('Error building 3D terrain mesh:', err);
         }
-      } catch (err) {
-        console.error('Error building 3D terrain mesh:', err);
+      } else {
+        // Clear only marker groups without touching the terrain mesh or texture
+        const tt = document.getElementById('tooltip-3d');
+        if (tt) tt.style.display = 'none';
+        pickableInstancedMeshes = [];
+        if (groups3d.root) {
+          scene.remove(groups3d.root);
+        }
+        groups3d.root = new THREE.Group();
+        scene.add(groups3d.root);
+        groups3d.player = null;
+        groups3d.somersloops = null;
+        groups3d.mercerSpheres = null;
+        groups3d.dropPods = null;
+        groups3d.deposits = null;
+        groups3d.nodesByCategory = {};
       }
 
       // 2. Build 3D Node & Artifact Markers
       build3dMarkers(data);
       window.sync3dTerrainVisibility();
       window.sync3dLayerVisibility();
-      window.reset3dCamera(false);
+
+      if (preserveCamera && prevPos && prevTarget && camera && controls) {
+        camera.position.copy(prevPos);
+        controls.target.copy(prevTarget);
+        controls.update();
+      } else {
+        window.reset3dCamera(false);
+      }
     };
 
     function build3dTerrainMesh(texture) {
@@ -2135,6 +3793,10 @@
           else if (node.mod_source === 'FicsitFarming') badgeHtml += '<span class="mod-badge-farming">Ficsit Farming</span>';
 
           byCat[rawName].push({
+            instance_name: node.instance_name,
+            node_type: node.node_type,
+            resource_name: rawName,
+            purity,
             ux: nx, uy: ny, uz: nz, scaleMul,
             tooltipHtml: `
               <div class="tooltip-title">
@@ -2144,6 +3806,7 @@
                 ${purity ? `<span class="tooltip-purity ${purityClass}">${purity}</span>` : ''}
               </div>
               <div class="tooltip-coords">X: ${nx.toFixed(0)}, Y: ${ny.toFixed(0)}, Z: ${nz.toFixed(0)} (${(nz/100).toFixed(1)}m)</div>
+              <div style="font-size: 10px; color: #00d2ff; margin-top: 4px; font-weight: 600;">Click to select &amp; relocate</div>
             `
           });
         }
@@ -2276,6 +3939,16 @@
         camera.position.copy(posEnd);
         controls.update();
       }
+    };
+
+    window.focus3dOnPoint = function(ueX, ueY, ueZ) {
+      if (!camera || !controls) return;
+      const wx = ueX / 100.0;
+      const wz = ueY / 100.0;
+      const wy = (ueZ / 100.0) * verticalScale;
+      const targetEnd = new THREE.Vector3(wx, wy, wz);
+      const posEnd = new THREE.Vector3(wx, wy + 450, wz + 550);
+      flyCameraTo(posEnd, targetEnd, 520);
     };
 
     function flyCameraTo(endPos, endTarget, duration = 550) {
@@ -2437,6 +4110,9 @@
       }
 
       controls.update();
+      if (teleportBeaconGroup && teleportBeaconGroup.visible) {
+        teleportBeaconGroup.children[2].rotation.y += 0.03;
+      }
       const camDist = camera.position.distanceTo(controls.target);
       const zoomEl = document.getElementById('hud-zoom');
       if (zoomEl) zoomEl.innerText = (camDist / 1000).toFixed(2) + 'km';

@@ -5,12 +5,16 @@ target/
 # MSVC & Windows build artifacts
 *.pdb
 *.old.exe
+*.old
+*.exe.old
+release/samples/
 
 # Large debug dump logs
 Referenc_specs/*.txt
 Referenc_specs/*.sav
 Referenc_specs/__pycache__/
 Referenc_specs/sav_data/
+samples/*221026*.sav
 
 # Temporary test / preview images
 basemap_preview.png

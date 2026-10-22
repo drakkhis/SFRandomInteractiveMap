@@ -2,7 +2,9 @@ pub mod decompressor;
 pub mod map_gen;
 pub mod models;
 pub mod parser;
+pub mod save_writer;
 pub mod server;
+pub mod vanilla_nodes_data;
 
 use anyhow::{Context, Result};
 use std::fs;
@@ -12,6 +14,7 @@ pub use decompressor::decompress_save_chunks;
 pub use map_gen::{extract_and_render_map, GeneratedMapData};
 pub use models::*;
 pub use parser::{clean_purity, detect_mod_source, extract_clean_name, extract_rwg_summary, parse_save_game, parse_save_header};
+pub use save_writer::{modify_node_coordinates, modify_player_coordinates, recompress_save};
 pub use server::{create_app, find_latest_save, AppState};
 
 /// Parses a Satisfactory save file directly from a raw byte buffer,

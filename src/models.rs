@@ -46,6 +46,8 @@ pub struct ActorHeader {
     pub need_transform: bool,
     pub transform: Transform,
     pub was_placed_in_level: bool,
+    #[serde(default)]
+    pub translation_offset: usize,
 }
 
 /// Header for a Component in a Level.
@@ -126,6 +128,8 @@ pub struct ParsedActor {
     pub transform: Transform,
     pub was_placed_in_level: bool,
     pub properties: HashMap<String, PropertyValue>,
+    #[serde(default)]
+    pub translation_offset: usize,
 }
 
 /// Summary of an artifact or collectible (Somersloop or Mercer Sphere).
@@ -149,6 +153,8 @@ pub struct ResourceNodeSummary {
     pub node_type: Option<String>, // "Standard", "Geyser", "ResourceWellCore", "ResourceWellSatellite"
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mod_source: Option<String>, // "Vanilla", "RefinedPower", "SatisfactoryPlus"
+    #[serde(default)]
+    pub translation_offset: usize,
 }
 
 /// Summary of a resource deposit (`BP_ResourceDeposit_C`).
@@ -172,6 +178,8 @@ pub struct DropPodSummary {
 pub struct PlayerSummary {
     pub instance_name: String,
     pub transform: Transform,
+    #[serde(default)]
+    pub translation_offset: usize,
 }
 
 /// Summary of a player placed structure.
