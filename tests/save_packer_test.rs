@@ -7,8 +7,16 @@ use sat_rwg_map::{
 
 #[test]
 fn test_recompress_and_teleport_player() {
-    let save_path = Path::new("samples/tera_autosave_0.sav");
-    assert!(save_path.exists(), "Sample save must exist");
+    let sample_candidates = [
+        "samples/tera_autosave_0.sav",
+        "samples/RP Test_autosave_1.sav",
+        "samples/Map Test_191026-233059.sav",
+    ];
+    let save_path = sample_candidates
+        .iter()
+        .map(Path::new)
+        .find(|p| p.exists())
+        .expect("At least one sample save must exist in samples/");
 
     let raw_bytes = fs::read(save_path).expect("Failed to read sample save");
     let (header, chunk_offset) = parse_save_header(&raw_bytes).expect("Failed to parse save header");

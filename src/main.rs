@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use anyhow::{Context, Result};
 use sat_rwg_map::{create_app, find_latest_save, parse_save_file, AppState, RwgActorsSummary};
 use std::env;
@@ -5,9 +7,12 @@ use std::fs;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use tao::event::{Event, WindowEvent};
+use tao::event_loop::{ControlFlow, EventLoop};
+use tao::window::WindowBuilder;
+use wry::WebViewBuilder;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
@@ -61,36 +66,79 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    // Default mode: Axum Web Server (Milestone 2)
-    let samples_dir = PathBuf::from("samples");
-    let _ = fs::create_dir_all(&samples_dir);
-    let state = AppState::new(&samples_dir);
-    let app = create_app(state);
+    // Check if Headless Server mode was requested (--server)
+    if args.iter().any(|arg| arg == "--server") {
+        let rt = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
+        return rt.block_on(async {
+            let samples_dir = PathBuf::from("samples");
+            let _ = fs::create_dir_all(&samples_dir);
+            let state = AppState::new(&samples_dir);
+            let app = create_app(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
-    println!("=======================================================");
-    println!(" Satisfactory RWG Map & Save Server (sat-rwg-map)");
-    println!("=======================================================");
-    println!("Serving on http://{}", addr);
-    println!("Endpoints:");
-    println!("  GET http://{}/api/status", addr);
-    println!("  GET http://{}/api/world", addr);
-    println!("  GET http://{}/api/map.png", addr);
-    println!("=======================================================");
+            let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+            println!("=======================================================");
+            println!(" Satisfactory RWG Map Server (Headless Mode)");
+            println!("=======================================================");
+            println!("Serving on http://{}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await
-        .with_context(|| format!("Failed to bind server to {}", addr))?;
+            let listener = tokio::net::TcpListener::bind(addr).await
+                .with_context(|| format!("Failed to bind server to {}", addr))?;
 
-    // Auto-open the browser unless --no-browser is passed
-    if !args.iter().any(|arg| arg == "--no-browser") {
-        let url = format!("http://{}", addr);
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", "start", "", &url])
-            .spawn();
+            axum::serve(listener, app).await
+                .context("Server execution error")?;
+            Ok(())
+        });
     }
 
-    axum::serve(listener, app).await
-        .context("Server execution error")?;
+    // Default mode: Self-Contained Native Desktop Application Window
+    let (tx_port, rx_port) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().expect("Failed to initialize background runtime");
+        rt.block_on(async move {
+            let samples_dir = PathBuf::from("samples");
+            let _ = fs::create_dir_all(&samples_dir);
+            let state = AppState::new(&samples_dir);
+            let app = create_app(state);
 
-    Ok(())
+            // Bind to 8080 or fallback to dynamic port
+            let listener = match tokio::net::TcpListener::bind("127.0.0.1:8080").await {
+                Ok(l) => l,
+                Err(_) => tokio::net::TcpListener::bind("127.0.0.1:0")
+                    .await
+                    .expect("Failed to bind to dynamic port"),
+            };
+
+            let port = listener.local_addr().expect("local addr").port();
+            let _ = tx_port.send(port);
+
+            let _ = axum::serve(listener, app).await;
+        });
+    });
+
+    let port = rx_port.recv().context("Failed to receive local server port")?;
+    let url = format!("http://127.0.0.1:{}", port);
+
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("Satisfactory RWG Interactive Map")
+        .with_inner_size(tao::dpi::LogicalSize::new(1440.0, 900.0))
+        .with_min_inner_size(tao::dpi::LogicalSize::new(960.0, 600.0))
+        .build(&event_loop)
+        .context("Failed to create desktop application window")?;
+
+    let _webview = WebViewBuilder::new()
+        .with_url(&url)
+        .build(&window)
+        .context("Failed to initialize WebView")?;
+
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
+            _ => (),
+        }
+    });
 }
