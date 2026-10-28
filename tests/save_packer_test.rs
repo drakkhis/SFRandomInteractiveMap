@@ -8,9 +8,11 @@ use sat_rwg_map::{
 #[test]
 fn test_recompress_and_teleport_player() {
     let sample_candidates = [
+        "samples/SF+ Random World 5_281026-182315.sav",
         "samples/tera_autosave_0.sav",
         "samples/RP Test_autosave_1.sav",
         "samples/Map Test_191026-233059.sav",
+        "Referenc_specs/RP Test_autosave_1.sav",
     ];
     let save_path = sample_candidates
         .iter()

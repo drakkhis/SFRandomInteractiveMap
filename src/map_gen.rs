@@ -94,18 +94,34 @@ pub fn extract_and_render_map(uncompressed_save_data: &[u8], out_size: usize) ->
         bail!("Invalid PWW1 resolution: {}", resolution);
     }
 
-    hdr.set_position(0x119);
-    let str_len = hdr.read_u32::<LittleEndian>()? as usize;
-    if 0x119 + 4 + str_len + 8 > blob.len() {
+    // 2b. Dynamically locate the summary FString and section table
+    // In v24 headers, str_len was at 0x118/0x119; in v28 headers (v0.2.0), 24 bytes of new fields
+    // were added at 0xE0..0x100, pushing str_len to 0x131.
+    // Finding b"splice seed" dynamically makes this forward-compatible across all mod versions.
+    let (str_len_pos, str_len) = if let Some(splice_idx) = find_subslice(blob, b"splice seed") {
+        let len_pos = splice_idx - 4;
+        let mut len_rdr = Cursor::new(&blob[len_pos..len_pos + 4]);
+        let len = len_rdr.read_u32::<LittleEndian>()? as usize;
+        (len_pos, len)
+    } else {
+        // Fallback: check header version at offset 4
+        let version = Cursor::new(&blob[4..8]).read_u32::<LittleEndian>().unwrap_or(0);
+        let len_pos = if version >= 28 { 0x131 } else { 0x119 };
+        let mut len_rdr = Cursor::new(&blob[len_pos..len_pos + 4]);
+        let len = len_rdr.read_u32::<LittleEndian>()? as usize;
+        (len_pos, len)
+    };
+
+    if str_len_pos + 4 + str_len + 8 > blob.len() {
         bail!("Invalid PWW1 summary string length: {}", str_len);
     }
-    let summary_bytes = &blob[0x119 + 4 .. 0x119 + 4 + str_len];
+    let summary_bytes = &blob[str_len_pos + 4 .. str_len_pos + 4 + str_len];
     let summary_text = String::from_utf8_lossy(
         summary_bytes.strip_suffix(&[0]).unwrap_or(summary_bytes)
     ).to_string();
 
     // 3. Parse Section Table and Band Table immediately following the summary string
-    let mut pos = 0x119 + 4 + str_len;
+    let mut pos = str_len_pos + 4 + str_len;
     let mut rdr = Cursor::new(blob);
     rdr.set_position(pos as u64);
 

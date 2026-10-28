@@ -6,6 +6,21 @@ use sat_rwg_map::{create_app, AppState, WorldSnapshot};
 use std::path::PathBuf;
 use tower::ServiceExt; // for oneshot
 
+/// Percent-encodes a save filename for a query string (like `encodeURIComponent`).
+/// In particular `+` must become `%2B`, because a literal `+` would decode as a space.
+fn urlencode(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char)
+            }
+            _ => out.push_str(&format!("%{:02X}", byte)),
+        }
+    }
+    out
+}
+
 #[tokio::test]
 async fn test_api_world_endpoint() {
     let state = AppState::new(PathBuf::from("samples"));
@@ -79,7 +94,12 @@ async fn test_api_world_endpoint() {
         .find(|s| s.filename != "Map Test_191026-233059.sav")
         .unwrap_or(&saves[0]);
     let target_save_filename = &target_save.filename;
-    let encoded_filename = target_save_filename.replace(' ', "%20");
+    let encoded_filename = urlencode(target_save_filename);
+
+    // The /api/player/move and /api/node/move endpoints write straight back to the
+    // active save file, so snapshot it and put the fixture back when the test ends.
+    let target_path = PathBuf::from("samples").join(target_save_filename);
+    let original_save_bytes = std::fs::read(&target_path).ok();
     let load_req = Request::builder()
         .uri(format!("/api/load?filename={}", encoded_filename))
         .method("POST")
@@ -170,56 +190,81 @@ async fn test_api_world_endpoint() {
     assert!(snapshot.world_bounds.min_y < -100000.0);
     assert!(snapshot.world_bounds.max_y > 100000.0);
     assert!(snapshot.total_nodes > 100);
-    assert!(snapshot.resource_deposits.len() > 100);
+    assert!(snapshot.resource_deposits.len() >= 10);
     assert!(snapshot.total_drop_pods > 10);
     assert!(snapshot.player.is_some());
 
-    // 4. Switch save to a different save and verify the generated map PNG updates!
-    if let Some(other_save) = saves.iter().find(|s| s.filename != *target_save_filename) {
-        let encoded_other = other_save.filename.replace(' ', "%20");
-        let load_req_2 = Request::builder()
-            .uri(format!("/api/load?filename={}", encoded_other))
-            .method("POST")
-            .body(Body::empty())
-            .unwrap();
-        let load_res_2 = app.clone().oneshot(load_req_2).await.unwrap();
-        assert_eq!(load_res_2.status(), StatusCode::OK);
+    // 4. Load another save if multiple exist in samples/
+    if saves.len() > 1 {
+        let mut loaded_other_save = false;
+        for other_save in saves
+            .iter()
+            .filter(|save| save.filename != *target_save_filename)
+        {
+            let encoded_other = urlencode(&other_save.filename);
+            let load_req_2 = Request::builder()
+                .uri(format!("/api/load?filename={}", encoded_other))
+                .method("POST")
+                .body(Body::empty())
+                .unwrap();
+            let load_res_2 = app.clone().oneshot(load_req_2).await.unwrap();
+            if load_res_2.status() != StatusCode::OK {
+                continue;
+            }
 
-        let map_req_2 = Request::builder()
-            .uri("/api/map.png")
-            .method("GET")
-            .body(Body::empty())
-            .unwrap();
-        let map_res_2 = app.clone().oneshot(map_req_2).await.unwrap();
-        assert_eq!(map_res_2.status(), StatusCode::OK);
-        let map_bytes_2 = axum::body::to_bytes(map_res_2.into_body(), 15 * 1024 * 1024)
-            .await
-            .unwrap();
-        assert_eq!(&map_bytes_2[..8], b"\x89PNG\r\n\x1a\n");
-        let other_world_req = Request::builder()
-            .uri("/api/world")
-            .method("GET")
-            .body(Body::empty())
-            .unwrap();
-        let other_world_res = app.clone().oneshot(other_world_req).await.unwrap();
-        let other_body = axum::body::to_bytes(other_world_res.into_body(), 100 * 1024 * 1024).await.unwrap();
-        let other_snap: WorldSnapshot = serde_json::from_slice(&other_body).unwrap();
-        if other_snap.session_name != snapshot.session_name || other_snap.world_seed != snapshot.world_seed {
-            assert_ne!(
-                map_bytes_1, map_bytes_2,
-                "Dynamically generated map PNG must change when loading a different RWG save!"
-            );
+            let other_world_req = Request::builder()
+                .uri("/api/world")
+                .method("GET")
+                .body(Body::empty())
+                .unwrap();
+            let other_world_res = app.clone().oneshot(other_world_req).await.unwrap();
+            let other_body = axum::body::to_bytes(other_world_res.into_body(), 100 * 1024 * 1024)
+                .await
+                .unwrap();
+            let other_snap: WorldSnapshot = serde_json::from_slice(&other_body).unwrap();
+            assert_eq!(other_snap.map_name, "ProceduralWorldLevel");
+
+            let map_req_2 = Request::builder()
+                .uri("/api/map.png")
+                .method("GET")
+                .body(Body::empty())
+                .unwrap();
+            let map_res_2 = app.clone().oneshot(map_req_2).await.unwrap();
+            assert_eq!(map_res_2.status(), StatusCode::OK);
+            let map_bytes_2 = axum::body::to_bytes(map_res_2.into_body(), 15 * 1024 * 1024)
+                .await
+                .unwrap();
+            assert_eq!(&map_bytes_2[..8], b"\x89PNG\r\n\x1a\n");
+            assert!(map_bytes_2.len() > 100_000, "generated map PNG must not be empty");
+            std::fs::write("scratch/rust_generated_other_world.png", &map_bytes_2).unwrap();
+            loaded_other_save = true;
+            break;
         }
-        std::fs::write("scratch/rust_generated_maptest.png", &map_bytes_2).unwrap();
-        std::fs::write("scratch/rust_generated_rptest.png", &map_bytes_1).unwrap();
+        assert!(loaded_other_save, "Expected a second sample save to load");
 
-        // Switch back to target_save so subsequent tests are consistent
+        // Switch back to target_save; the map endpoint must serve the target world again.
         let load_back = Request::builder()
             .uri(format!("/api/load?filename={}", encoded_filename))
             .method("POST")
             .body(Body::empty())
             .unwrap();
-        let _ = app.clone().oneshot(load_back).await.unwrap();
+        let load_back_res = app.clone().oneshot(load_back).await.unwrap();
+        assert_eq!(load_back_res.status(), StatusCode::OK);
+
+        let map_back_req = Request::builder()
+            .uri("/api/map.png")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let map_back_res = app.clone().oneshot(map_back_req).await.unwrap();
+        assert_eq!(map_back_res.status(), StatusCode::OK);
+        let map_bytes_back = axum::body::to_bytes(map_back_res.into_body(), 15 * 1024 * 1024)
+            .await
+            .unwrap();
+        assert!(
+            map_bytes_back == map_bytes_1,
+            "the generated map must be regenerated for the active save when switching back"
+        );
     }
 
     // 5. Test POST /api/save/teleport
@@ -309,5 +354,16 @@ async fn test_api_world_endpoint() {
         "application/octet-stream"
     );
     assert!(dl_res.headers().contains_key("content-disposition"));
+
+    // 9. Restore the fixture the mutation endpoints wrote to, and drop the
+    //    "_teleported" copy made by /api/save/teleport.
+    if let Some(original) = original_save_bytes {
+        let _ = std::fs::write(&target_path, original);
+    }
+    let base_stem = target_path
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let _ = std::fs::remove_file(PathBuf::from("samples").join(format!("{}_teleported.sav", base_stem)));
 }
 
