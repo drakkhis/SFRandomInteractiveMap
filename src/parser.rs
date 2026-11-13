@@ -170,11 +170,29 @@ pub fn parse_save_header(data: &[u8]) -> Result<(SaveHeader, usize)> {
     Ok((header, chunk_start_offset))
 }
 
+/// Exact byte span of a header + body pair inside a level's uncompressed stream.
+#[derive(Debug, Clone)]
+pub struct LevelObjectSpan {
+    pub instance_name: String,
+    pub parent_actor_name: Option<String>,
+    pub header_range: (usize, usize),
+    pub body_range: (usize, usize),
+    pub is_actor: bool,
+}
+
 /// Parsed level containing all its headers and parsed actors.
 pub struct ParsedLevel {
     pub level_name: Option<String>,
     pub headers: Vec<LevelObjectHeader>,
     pub actors: Vec<ParsedActor>,
+    pub inventory_components: Vec<ParsedInventoryComponent>,
+    pub headers_size_offset: usize,
+    pub header_count_offset: usize,
+    pub headers_insert_offset: usize,
+    pub objects_size_offset: usize,
+    pub object_count_offset: usize,
+    pub objects_insert_offset: usize,
+    pub object_spans: Vec<LevelObjectSpan>,
 }
 
 /// Result of parsing the entire decompressed save data.
@@ -260,8 +278,10 @@ fn parse_single_level(
     let actor_and_component_count = rdr.read_u32::<LittleEndian>()? as usize;
 
     let mut object_headers = Vec::with_capacity(actor_and_component_count);
+    let mut header_ranges = Vec::with_capacity(actor_and_component_count);
 
     for _ in 0..actor_and_component_count {
+        let h_start = rdr.position() as usize;
         let header_type = rdr.read_u32::<LittleEndian>()?;
         if header_type == 1 {
             let type_path = read_fstring(rdr)?;
@@ -317,7 +337,10 @@ fn parse_single_level(
         } else {
             bail!("Invalid header type: {}", header_type);
         }
+        let h_end = rdr.position() as usize;
+        header_ranges.push((h_start, h_end));
     }
+    let headers_insert_offset = rdr.position() as usize;
 
     if persistent_level_flag {
         let level_persistent_flag = rdr.read_u32::<LittleEndian>()? != 0;
@@ -375,9 +398,12 @@ fn parse_single_level(
     }
 
     let mut parsed_actors = Vec::new();
+    let mut inventory_components = Vec::new();
+    let mut object_spans = Vec::with_capacity(object_count);
 
     for idx in 0..object_count {
         let header = &object_headers[idx];
+        let body_start = object_data_start as usize + obj_rdr.position() as usize;
         let object_game_version = obj_rdr.read_u32::<LittleEndian>()?;
         let _should_migrate = obj_rdr.read_u32::<LittleEndian>()? != 0;
         let object_size = obj_rdr.read_u32::<LittleEndian>()? as u64;
@@ -423,8 +449,32 @@ fn parse_single_level(
             payload_start + object_size,
         );
 
+        let mut lightweight_instances = Vec::new();
         if is_actor {
             if let LevelObjectHeader::Actor(actor_hdr) = header {
+                if actor_hdr.type_path == "/Script/FactoryGame.FGLightweightBuildableSubsystem" {
+                    lightweight_instances = parse_lightweight_buildables(
+                        &mut obj_rdr,
+                        payload_start + object_size,
+                        object_data_start as usize,
+                        (object_data_start + payload_start - 4) as usize,
+                        (object_data_start - 8) as usize,
+                    );
+                }
+                let fog_raw_data_range = if actor_hdr.type_path.contains("FGMapManager")
+                    || properties.contains_key("mFogOfWarRawData")
+                {
+                    locate_fog_raw_data_range(
+                        object_slice,
+                        payload_start,
+                        object_size,
+                        object_ue5_version,
+                        object_data_start as usize,
+                    )
+                } else {
+                    None
+                };
+
                 parsed_actors.push(ParsedActor {
                     type_path: actor_hdr.type_path.clone(),
                     root_object: actor_hdr.root_object.clone(),
@@ -434,18 +484,178 @@ fn parse_single_level(
                     was_placed_in_level: actor_hdr.was_placed_in_level,
                     properties,
                     translation_offset: actor_hdr.translation_offset,
+                    lightweight_instances,
+                    fog_raw_data_range,
+                    payload_start_abs: (object_data_start + payload_start) as usize,
+                    object_size: object_size as usize,
+                    object_size_offset: (object_data_start + payload_start - 4) as usize,
+                    all_objects_size_offset: (object_data_start - 8) as usize,
+                    object_ue5_version,
                 });
+            }
+        } else if let LevelObjectHeader::Component(comp_hdr) = header {
+            if comp_hdr.class_name.contains("InventoryComponent")
+                || properties.contains_key("mInventoryStacks")
+            {
+                if let Some((total_slots, stacks)) = extract_inventory_stacks(&properties) {
+                    inventory_components.push(ParsedInventoryComponent {
+                        instance_name: comp_hdr.instance_name.clone(),
+                        parent_actor_name: comp_hdr.parent_actor_name.clone(),
+                        total_slots,
+                        stacks,
+                        all_objects_size_offset: (object_data_start - 8) as usize,
+                        object_size_offset: (object_data_start + payload_start - 4) as usize,
+                        payload_start_abs: (object_data_start + payload_start) as usize,
+                        object_size: object_size as usize,
+                        object_ue5_version,
+                    });
+                }
             }
         }
 
         // Advance safely to jump_offset
         obj_rdr.set_position(jump_offset);
+        let body_end = object_data_start as usize + jump_offset as usize;
+        let (inst_name, parent_name) = match header {
+            LevelObjectHeader::Actor(a) => (a.instance_name.clone(), None),
+            LevelObjectHeader::Component(c) => (c.instance_name.clone(), Some(c.parent_actor_name.clone())),
+        };
+        object_spans.push(LevelObjectSpan {
+            instance_name: inst_name,
+            parent_actor_name: parent_name,
+            header_range: header_ranges[idx],
+            body_range: (body_start, body_end),
+            is_actor,
+        });
     }
 
     Ok(ParsedLevel {
         level_name,
         headers: object_headers,
         actors: parsed_actors,
+        inventory_components,
+        headers_size_offset: (header_start - 8) as usize,
+        header_count_offset: header_start as usize,
+        headers_insert_offset,
+        objects_size_offset: (object_data_start - 8) as usize,
+        object_count_offset: object_data_start as usize,
+        objects_insert_offset: after_objects_pos as usize,
+        object_spans,
+    })
+}
+
+struct ParsedPropHeader {
+    property_name: String,
+    property_type: String,
+    property_header_flag: bool,
+    struct_property_type: Option<String>,
+    array_type: Option<String>,
+    structure_sub_type: Option<String>,
+    enum_name: Option<String>,
+    property_size_offset: usize,
+    property_size: u64,
+}
+
+fn read_next_property_header(
+    rdr: &mut Cursor<&[u8]>,
+    object_ue5_version: i32,
+    max_payload_offset: u64,
+) -> Option<ParsedPropHeader> {
+    if rdr.position() >= max_payload_offset {
+        return None;
+    }
+
+    let property_name = read_fstring(rdr).ok()?;
+    if property_name == "None" || property_name.is_empty() {
+        return None;
+    }
+
+    let property_type = read_fstring(rdr).ok()?;
+    let property_header_flag = object_ue5_version >= 1012;
+    let mut struct_property_type = None;
+    let mut array_type = None;
+    let mut structure_sub_type = None;
+    let mut enum_name = None;
+
+    if property_header_flag {
+        let header_type_a = rdr.read_u32::<LittleEndian>().ok()?;
+        if header_type_a == 1 {
+            if property_type == "ArrayProperty" {
+                if let Ok(arr_t) = read_fstring(rdr) {
+                    array_type = Some(arr_t);
+                }
+                if let Ok(header_type_b) = rdr.read_u32::<LittleEndian>() {
+                    if header_type_b == 1 {
+                        if let Ok(sub_t) = read_fstring(rdr) {
+                            structure_sub_type = Some(sub_t);
+                        }
+                        let _ = skip_package_name(rdr);
+                    } else if header_type_b == 2 {
+                        if let Ok(e_name) = read_fstring(rdr) {
+                            enum_name = Some(e_name);
+                        }
+                        let _ = skip_package_name(rdr);
+                        let _ = read_fstring(rdr);
+                        let _ = rdr.read_u32::<LittleEndian>();
+                    }
+                }
+            } else if property_type == "ByteProperty" {
+                if let Ok(e_name) = read_fstring(rdr) {
+                    enum_name = Some(e_name);
+                }
+                let _ = skip_package_name(rdr);
+            } else if property_type == "SetProperty" {
+                let _ = read_fstring(rdr);
+                let _ = skip_package_name(rdr);
+            } else if property_type == "StructProperty" {
+                if let Ok(s_t) = read_fstring(rdr) {
+                    struct_property_type = Some(s_t);
+                }
+                let _ = skip_package_name(rdr);
+            }
+        } else if header_type_a == 2 {
+            if property_type == "EnumProperty" {
+                if let Ok(e_name) = read_fstring(rdr) {
+                    enum_name = Some(e_name);
+                }
+                let _ = skip_package_name(rdr);
+                let _ = read_fstring(rdr);
+                let _ = rdr.read_u32::<LittleEndian>();
+            } else if property_type == "MapProperty" {
+                let _ = read_fstring(rdr);
+                if let Ok(has_key) = rdr.read_u32::<LittleEndian>() {
+                    if has_key != 0 {
+                        let _ = read_fstring(rdr);
+                        let _ = skip_package_name(rdr);
+                    }
+                }
+                let _ = read_fstring(rdr);
+                if let Ok(has_val) = rdr.read_u32::<LittleEndian>() {
+                    if has_val != 0 {
+                        let _ = read_fstring(rdr);
+                        let _ = skip_package_name(rdr);
+                    }
+                }
+            }
+        }
+    }
+
+    let property_size_offset = rdr.position() as usize;
+    let property_size = rdr.read_u32::<LittleEndian>().ok()? as u64;
+    if !property_header_flag {
+        let _ = rdr.read_u32::<LittleEndian>();
+    }
+
+    Some(ParsedPropHeader {
+        property_name,
+        property_type,
+        property_header_flag,
+        struct_property_type,
+        array_type,
+        structure_sub_type,
+        enum_name,
+        property_size_offset,
+        property_size,
     })
 }
 
@@ -458,129 +668,242 @@ fn parse_properties_tree(
 ) -> HashMap<String, PropertyValue> {
     let mut properties = HashMap::new();
 
-    loop {
-        if rdr.position() >= max_payload_offset {
-            break;
-        }
-
-        let property_name = match read_fstring(rdr) {
-            Ok(s) => s,
-            Err(_) => break,
-        };
-
-        if property_name == "None" || property_name.is_empty() {
-            break;
-        }
-
-        let property_type = match read_fstring(rdr) {
-            Ok(s) => s,
-            Err(_) => break,
-        };
-
-        let property_header_flag = object_ue5_version >= 1012;
-        let mut struct_property_type = None;
-        let mut array_type = None;
-        let mut structure_sub_type = None;
-        let mut enum_name = None;
-
-        if property_header_flag {
-            let header_type_a = match rdr.read_u32::<LittleEndian>() {
-                Ok(v) => v,
-                Err(_) => break,
-            };
-
-            if header_type_a == 1 {
-                if property_type == "ArrayProperty" {
-                    if let Ok(arr_t) = read_fstring(rdr) {
-                        array_type = Some(arr_t);
-                    }
-                    if let Ok(header_type_b) = rdr.read_u32::<LittleEndian>() {
-                        if header_type_b == 1 {
-                            if let Ok(sub_t) = read_fstring(rdr) {
-                                structure_sub_type = Some(sub_t);
-                            }
-                            let _ = skip_package_name(rdr);
-                        } else if header_type_b == 2 {
-                            if let Ok(e_name) = read_fstring(rdr) {
-                                enum_name = Some(e_name);
-                            }
-                            let _ = skip_package_name(rdr);
-                            let _ = read_fstring(rdr);
-                            let _ = rdr.read_u32::<LittleEndian>();
-                        }
-                    }
-                } else if property_type == "ByteProperty" {
-                    if let Ok(e_name) = read_fstring(rdr) {
-                        enum_name = Some(e_name);
-                    }
-                    let _ = skip_package_name(rdr);
-                } else if property_type == "SetProperty" {
-                    let _ = read_fstring(rdr);
-                    let _ = skip_package_name(rdr);
-                } else if property_type == "StructProperty" {
-                    if let Ok(s_t) = read_fstring(rdr) {
-                        struct_property_type = Some(s_t);
-                    }
-                    let _ = skip_package_name(rdr);
-                }
-            } else if header_type_a == 2 {
-                if property_type == "EnumProperty" {
-                    if let Ok(e_name) = read_fstring(rdr) {
-                        enum_name = Some(e_name);
-                    }
-                    let _ = skip_package_name(rdr);
-                    let _ = read_fstring(rdr);
-                    let _ = rdr.read_u32::<LittleEndian>();
-                } else if property_type == "MapProperty" {
-                    let _ = read_fstring(rdr);
-                    if let Ok(has_key) = rdr.read_u32::<LittleEndian>() {
-                        if has_key != 0 {
-                            let _ = read_fstring(rdr);
-                            let _ = skip_package_name(rdr);
-                        }
-                    }
-                    let _ = read_fstring(rdr);
-                    if let Ok(has_val) = rdr.read_u32::<LittleEndian>() {
-                        if has_val != 0 {
-                            let _ = read_fstring(rdr);
-                            let _ = skip_package_name(rdr);
-                        }
-                    }
-                }
-            }
-        }
-
-        let property_size = match rdr.read_u32::<LittleEndian>() {
-            Ok(v) => v as u64,
-            Err(_) => break,
-        };
-
-        if !property_header_flag {
-            let _ = rdr.read_u32::<LittleEndian>();
-        }
-
+    while let Some(hdr) = read_next_property_header(rdr, object_ue5_version, max_payload_offset) {
         // Parse property content and obtain exact prop_end
         let (val, prop_end) = match parse_single_property_value(
             rdr,
-            &property_type,
-            struct_property_type.as_deref(),
-            array_type.as_deref(),
-            structure_sub_type.as_deref(),
-            enum_name.as_deref(),
-            property_size,
-            property_header_flag,
+            &hdr.property_type,
+            hdr.struct_property_type.as_deref(),
+            hdr.array_type.as_deref(),
+            hdr.structure_sub_type.as_deref(),
+            hdr.enum_name.as_deref(),
+            hdr.property_size,
+            hdr.property_header_flag,
         ) {
             Ok(res) => res,
             Err(_) => break,
         };
 
-        properties.insert(property_name, val);
+        properties.insert(hdr.property_name, val);
 
         // Always ensure we advance cleanly to the end of the property
         rdr.set_position(prop_end);
     }
 
     properties
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InventorySlotByteSpan {
+    pub item_prop_size_offset: usize,
+    pub item_fstring_start: usize,
+    pub item_fstring_end: usize,
+    pub num_items_val_offset: usize,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InventoryStacksByteLayout {
+    pub stacks_prop_size_offset: usize,
+    pub slots: Vec<InventorySlotByteSpan>,
+}
+
+/// Locates exact byte offsets for each `InventoryStack` slot in `FGInventoryComponent::mInventoryStacks`.
+pub(crate) fn locate_m_inventory_stacks(
+    uncompressed: &[u8],
+    comp: &ParsedInventoryComponent,
+) -> Result<InventoryStacksByteLayout> {
+    let mut rdr = Cursor::new(uncompressed);
+    rdr.set_position(comp.payload_start_abs as u64);
+    let max_offset = (comp.payload_start_abs + comp.object_size) as u64;
+
+    if comp.object_ue5_version >= 1011 {
+        let _ = rdr.read_u8()?;
+    }
+
+    while let Some(hdr) = read_next_property_header(&mut rdr, comp.object_ue5_version, max_offset) {
+        if hdr.property_name == "mInventoryStacks" && hdr.property_type == "ArrayProperty" {
+            let _zero_or_eight = rdr.read_u8()?;
+            let prop_start = rdr.position();
+            let prop_end = prop_start + hdr.property_size;
+            let elem_count = rdr.read_u32::<LittleEndian>()? as usize;
+            let sub_ver = if hdr.property_header_flag { 1012 } else { 1000 };
+
+            let mut slots = Vec::with_capacity(elem_count);
+            for _ in 0..elem_count {
+                if rdr.position() >= prop_end {
+                    break;
+                }
+                let mut item_prop_size_offset = 0usize;
+                let mut item_fstring_start = 0usize;
+                let mut item_fstring_end = 0usize;
+                let mut num_items_val_offset = 0usize;
+
+                while let Some(sh) = read_next_property_header(&mut rdr, sub_ver, prop_end) {
+                    if sh.property_name == "Item" && sh.property_type == "StructProperty" {
+                        if !sh.property_header_flag {
+                            let _ = read_fstring(&mut rdr);
+                            let _ = rdr.read_u64::<LittleEndian>();
+                            let _ = rdr.read_u64::<LittleEndian>();
+                        }
+                        let struct_idx1 = rdr.read_u8()?;
+                        if struct_idx1 == 9 {
+                            let _ = rdr.read_u32::<LittleEndian>()?;
+                        }
+                        item_prop_size_offset = sh.property_size_offset;
+                        let s_start = rdr.position();
+                        let _ = rdr.read_u32::<LittleEndian>()?;
+                        item_fstring_start = rdr.position() as usize;
+                        let _ = read_fstring(&mut rdr)?;
+                        item_fstring_end = rdr.position() as usize;
+                        rdr.set_position(s_start + sh.property_size);
+                    } else if sh.property_name == "NumItems" && sh.property_type == "IntProperty" {
+                        let _ = rdr.read_u8()?;
+                        num_items_val_offset = rdr.position() as usize;
+                        let _ = rdr.read_i32::<LittleEndian>()?;
+                    } else {
+                        let (_, s_end) = parse_single_property_value(
+                            &mut rdr,
+                            &sh.property_type,
+                            sh.struct_property_type.as_deref(),
+                            sh.array_type.as_deref(),
+                            sh.structure_sub_type.as_deref(),
+                            sh.enum_name.as_deref(),
+                            sh.property_size,
+                            sh.property_header_flag,
+                        )?;
+                        rdr.set_position(s_end);
+                    }
+                }
+
+                if item_fstring_start > 0 && num_items_val_offset > 0 {
+                    slots.push(InventorySlotByteSpan {
+                        item_prop_size_offset,
+                        item_fstring_start,
+                        item_fstring_end,
+                        num_items_val_offset,
+                    });
+                }
+            }
+
+            return Ok(InventoryStacksByteLayout {
+                stacks_prop_size_offset: hdr.property_size_offset,
+                slots,
+            });
+        }
+
+        let (_, prop_end) = parse_single_property_value(
+            &mut rdr,
+            &hdr.property_type,
+            hdr.struct_property_type.as_deref(),
+            hdr.array_type.as_deref(),
+            hdr.structure_sub_type.as_deref(),
+            hdr.enum_name.as_deref(),
+            hdr.property_size,
+            hdr.property_header_flag,
+        )?;
+        rdr.set_position(prop_end);
+    }
+
+    bail!("mInventoryStacks not found on component '{}'", comp.instance_name)
+}
+
+fn locate_fog_raw_data_range(
+    object_slice: &[u8],
+    payload_start: u64,
+    object_size: u64,
+    object_ue5_version: i32,
+    object_data_start: usize,
+) -> Option<(usize, usize)> {
+    let mut rdr = Cursor::new(object_slice);
+    rdr.set_position(payload_start);
+    let _ = read_object_reference(&mut rdr).ok()?;
+    let comp_count = rdr.read_u32::<LittleEndian>().ok()?;
+    for _ in 0..comp_count {
+        let _ = read_object_reference(&mut rdr).ok()?;
+    }
+    if object_ue5_version >= 1011 {
+        let _ = rdr.read_u8().ok()?;
+    }
+    let max_offset = payload_start + object_size;
+    while let Some(hdr) = read_next_property_header(&mut rdr, object_ue5_version, max_offset) {
+        if hdr.property_name == "mFogOfWarRawData" && hdr.property_type == "ArrayProperty" {
+            let _zero_or_eight = rdr.read_u8().ok()?;
+            let prop_start = rdr.position();
+            let prop_end = prop_start + hdr.property_size;
+            let elem_count = rdr.read_u32::<LittleEndian>().ok()? as usize;
+            let avail = prop_end.saturating_sub(rdr.position()) as usize;
+            let len = elem_count.min(avail);
+            return Some((object_data_start + rdr.position() as usize, len));
+        }
+        let (_, prop_end) = parse_single_property_value(
+            &mut rdr,
+            &hdr.property_type,
+            hdr.struct_property_type.as_deref(),
+            hdr.array_type.as_deref(),
+            hdr.structure_sub_type.as_deref(),
+            hdr.enum_name.as_deref(),
+            hdr.property_size,
+            hdr.property_header_flag,
+        )
+        .ok()?;
+        rdr.set_position(prop_end);
+    }
+    None
+}
+
+pub(crate) enum ScalarLocation {
+    Found(&'static str, usize),
+    InsertBeforeNone(usize),
+}
+
+/// Locates the exact byte offset of a scalar property (`BoolProperty`, `IntProperty`, `FloatProperty`)
+/// inside an actor's uncompressed payload, or the offset of the terminating `"None"` property if omitted.
+pub(crate) fn locate_actor_scalar_or_none(
+    uncompressed: &[u8],
+    actor: &ParsedActor,
+    prop_name: &str,
+) -> Result<ScalarLocation> {
+    let mut rdr = Cursor::new(uncompressed);
+    rdr.set_position(actor.payload_start_abs as u64);
+    let _ = read_object_reference(&mut rdr)?;
+    let comp_count = rdr.read_u32::<LittleEndian>()?;
+    for _ in 0..comp_count {
+        let _ = read_object_reference(&mut rdr)?;
+    }
+    if actor.object_ue5_version >= 1011 {
+        let _ = rdr.read_u8()?;
+    }
+    let max_offset = (actor.payload_start_abs + actor.object_size) as u64;
+    let mut none_offset = rdr.position() as usize;
+    while let Some(hdr) = read_next_property_header(&mut rdr, actor.object_ue5_version, max_offset) {
+        if hdr.property_name == prop_name {
+            return match hdr.property_type.as_str() {
+                "BoolProperty" => Ok(ScalarLocation::Found("bool", rdr.position() as usize)),
+                "IntProperty" => {
+                    let _ = rdr.read_u8()?;
+                    Ok(ScalarLocation::Found("int", rdr.position() as usize))
+                }
+                "FloatProperty" => {
+                    let _ = rdr.read_u8()?;
+                    Ok(ScalarLocation::Found("float", rdr.position() as usize))
+                }
+                other => bail!("Unsupported property type '{}' for '{}'", other, prop_name),
+            };
+        }
+        let (_, prop_end) = parse_single_property_value(
+            &mut rdr,
+            &hdr.property_type,
+            hdr.struct_property_type.as_deref(),
+            hdr.array_type.as_deref(),
+            hdr.structure_sub_type.as_deref(),
+            hdr.enum_name.as_deref(),
+            hdr.property_size,
+            hdr.property_header_flag,
+        )?;
+        rdr.set_position(prop_end);
+        none_offset = prop_end as usize;
+    }
+    Ok(ScalarLocation::InsertBeforeNone(none_offset))
 }
 
 /// Parses the payload value for a single property and returns (PropertyValue, prop_end).
@@ -791,6 +1114,32 @@ fn parse_single_property_value(
                             break;
                         }
                         items.push(PropertyValue::Int(rdr.read_i32::<LittleEndian>()?));
+                    }
+                    PropertyValue::Array(items)
+                }
+                Some("ByteProperty") => {
+                    let available = prop_end.saturating_sub(rdr.position()) as usize;
+                    let to_read = elem_count.min(available);
+                    let mut bytes = vec![0u8; to_read];
+                    if to_read > 0 {
+                        let _ = std::io::Read::read_exact(rdr, &mut bytes);
+                    }
+                    PropertyValue::RawBytes(bytes)
+                }
+                Some("StructProperty")
+                    if matches!(
+                        structure_sub_type.as_deref(),
+                        Some("SplinePointData") | Some("InventoryStack")
+                    ) =>
+                {
+                    let mut items = Vec::with_capacity(elem_count.min(256));
+                    let sub_ver = if property_header_flag { 1012 } else { 1000 };
+                    for _ in 0..elem_count {
+                        if rdr.position() >= prop_end {
+                            break;
+                        }
+                        let props = parse_properties_tree(rdr, sub_ver, prop_end);
+                        items.push(PropertyValue::Struct(StructValue::Properties(props)));
                     }
                     PropertyValue::Array(items)
                 }
@@ -1128,10 +1477,19 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     power_consumption: consumption,
                 });
             } else if path.contains("Build_") {
+                let meta = crate::building_footprints::lookup_building_metadata(path);
+                let spline_points = extract_spline_points(&actor.properties, &actor.transform);
                 player_structures.push(PlayerStructureSummary {
                     instance_name: actor.instance_name.clone(),
                     type_path: actor.type_path.clone(),
                     transform: actor.transform,
+                    display_name: meta.display_name,
+                    category: meta.category,
+                    mod_source: meta.mod_source,
+                    footprint: [meta.width_m, meta.length_m],
+                    spline_points,
+                    is_lightweight: false,
+                    translation_offset: actor.translation_offset,
                 });
 
                 // On standard maps, Satisfactory Plus spawns nodes in an unserialized sublevel (SatifactoryPlusWorld).
@@ -1186,6 +1544,25 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
                     }
                 }
             }
+
+            if !actor.lightweight_instances.is_empty() {
+                for (lw_idx, inst) in actor.lightweight_instances.iter().enumerate() {
+                    let meta = crate::building_footprints::lookup_building_metadata(&inst.type_path);
+                    let short_cls = inst.type_path.rsplit('.').next().unwrap_or("LW");
+                    player_structures.push(PlayerStructureSummary {
+                        instance_name: format!("LW_{}_{}", short_cls, lw_idx),
+                        type_path: inst.type_path.clone(),
+                        transform: inst.transform,
+                        display_name: meta.display_name,
+                        category: meta.category,
+                        mod_source: meta.mod_source,
+                        footprint: [meta.width_m, meta.length_m],
+                        spline_points: None,
+                        is_lightweight: true,
+                        translation_offset: inst.translation_offset,
+                    });
+                }
+            }
         }
     }
 
@@ -1233,6 +1610,12 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
         }
     }
 
+    let (inventories, item_catalog) =
+        build_inventory_summaries_and_catalog(parsed_save, &player_structures);
+
+    let (has_fog_of_war, fog_revealed_pct, fog_of_war_png) = extract_fog_of_war_png(parsed_save);
+    let game_settings = extract_save_game_settings(parsed_save);
+
     RwgActorsSummary {
         save_metadata: parsed_save.header.clone(),
         total_actor_headers,
@@ -1244,11 +1627,383 @@ pub fn extract_rwg_summary(parsed_save: &ParsedSaveGame) -> RwgActorsSummary {
         resource_deposits,
         drop_pods,
         player_structures,
+        inventories,
+        item_catalog,
         somersloops,
         mercer_spheres,
         generated_map_png: None,
         generated_heightmap: None,
+        has_fog_of_war,
+        fog_revealed_pct,
+        fog_of_war_png,
+        game_settings,
     }
+}
+
+fn classify_rule_actor_label(type_path: &str) -> Option<&'static str> {
+    if type_path.contains("GameRules") {
+        Some("GameRules")
+    } else if type_path.contains("UnlockSubsystem") {
+        Some("UnlockSubsystem")
+    } else if type_path.contains("GameState") {
+        Some("GameState")
+    } else if type_path.contains("PlayerState") {
+        Some("PlayerState")
+    } else {
+        None
+    }
+}
+
+fn extract_save_game_settings(parsed_save: &ParsedSaveGame) -> SaveGameSettings {
+    enum PresetDefault {
+        Bool(bool),
+        Int(i32),
+        Float(f32),
+    }
+
+    const GAME_STATE_PRESETS: &[(&str, PresetDefault)] = &[
+        ("mEnergyCostMultiplier", PresetDefault::Float(1.0)),
+        ("mPartsCostMultiplier", PresetDefault::Float(1.0)),
+        ("mSpacePartsCostMultiplier", PresetDefault::Float(1.0)),
+        ("mIsCreativeModeEnabled", PresetDefault::Bool(false)),
+        ("mCheatNoPower", PresetDefault::Bool(false)),
+        ("mCheatNoFuel", PresetDefault::Bool(false)),
+    ];
+
+    const GAME_RULES_PRESETS: &[(&str, PresetDefault)] = &[
+        ("mStartingTier", PresetDefault::Int(0)),
+        ("mNoUnlockCost", PresetDefault::Bool(false)),
+        ("mUnlockInstantAltRecipes", PresetDefault::Bool(false)),
+        ("mUnlockAllMilestoneSchematics", PresetDefault::Bool(false)),
+        ("mUnlockAllResearchSchematics", PresetDefault::Bool(false)),
+        ("mUnlockAllResourceSinkSchematics", PresetDefault::Bool(false)),
+    ];
+
+    let mut variables = Vec::new();
+    let mut seen: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
+
+    for lvl in &parsed_save.levels {
+        for actor in &lvl.actors {
+            let Some(label) = classify_rule_actor_label(&actor.type_path) else {
+                continue;
+            };
+            for (prop_name, prop_val) in &actor.properties {
+                let var = match prop_val {
+                    PropertyValue::Bool(b) => Some(GameRuleVariable {
+                        actor_instance_name: actor.instance_name.clone(),
+                        actor_label: label.to_string(),
+                        property_name: prop_name.clone(),
+                        value_type: "bool".to_string(),
+                        bool_val: Some(*b),
+                        int_val: None,
+                        float_val: None,
+                    }),
+                    PropertyValue::Int(i) => Some(GameRuleVariable {
+                        actor_instance_name: actor.instance_name.clone(),
+                        actor_label: label.to_string(),
+                        property_name: prop_name.clone(),
+                        value_type: "int".to_string(),
+                        bool_val: None,
+                        int_val: Some(*i),
+                        float_val: None,
+                    }),
+                    PropertyValue::Float(f) => Some(GameRuleVariable {
+                        actor_instance_name: actor.instance_name.clone(),
+                        actor_label: label.to_string(),
+                        property_name: prop_name.clone(),
+                        value_type: "float".to_string(),
+                        bool_val: None,
+                        int_val: None,
+                        float_val: Some(*f),
+                    }),
+                    _ => None,
+                };
+                if let Some(v) = var {
+                    seen.insert((actor.instance_name.clone(), prop_name.clone()));
+                    variables.push(v);
+                }
+            }
+
+            let presets: &[(&str, PresetDefault)] = match label {
+                "GameState" => GAME_STATE_PRESETS,
+                "GameRules" => GAME_RULES_PRESETS,
+                _ => &[],
+            };
+            for (prop_name, default_val) in presets {
+                let key = (actor.instance_name.clone(), (*prop_name).to_string());
+                if seen.contains(&key) {
+                    continue;
+                }
+                seen.insert(key);
+                let var = match default_val {
+                    PresetDefault::Bool(b) => GameRuleVariable {
+                        actor_instance_name: actor.instance_name.clone(),
+                        actor_label: label.to_string(),
+                        property_name: (*prop_name).to_string(),
+                        value_type: "bool".to_string(),
+                        bool_val: Some(*b),
+                        int_val: None,
+                        float_val: None,
+                    },
+                    PresetDefault::Int(i) => GameRuleVariable {
+                        actor_instance_name: actor.instance_name.clone(),
+                        actor_label: label.to_string(),
+                        property_name: (*prop_name).to_string(),
+                        value_type: "int".to_string(),
+                        bool_val: None,
+                        int_val: Some(*i),
+                        float_val: None,
+                    },
+                    PresetDefault::Float(f) => GameRuleVariable {
+                        actor_instance_name: actor.instance_name.clone(),
+                        actor_label: label.to_string(),
+                        property_name: (*prop_name).to_string(),
+                        value_type: "float".to_string(),
+                        bool_val: None,
+                        int_val: None,
+                        float_val: Some(*f),
+                    },
+                };
+                variables.push(var);
+            }
+        }
+    }
+    variables.sort_by(|a, b| {
+        a.actor_label
+            .cmp(&b.actor_label)
+            .then_with(|| a.property_name.cmp(&b.property_name))
+    });
+    SaveGameSettings {
+        is_creative_mode_enabled: parsed_save.header.is_creative_mode_enabled,
+        variables,
+    }
+}
+
+/// Encodes `FGMapManager::mFogOfWarRawData` (`512x512` BGRA8) into a transparent RGBA PNG overlay.
+fn extract_fog_of_war_png(parsed_save: &ParsedSaveGame) -> (bool, f32, Option<Vec<u8>>) {
+    for lvl in &parsed_save.levels {
+        for actor in &lvl.actors {
+            if let Some(PropertyValue::RawBytes(raw)) = actor.properties.get("mFogOfWarRawData") {
+                if raw.len() < 4 || raw.len() % 4 != 0 {
+                    continue;
+                }
+                let pixel_count = raw.len() / 4;
+                let side = (pixel_count as f64).sqrt() as u32;
+                if (side * side) as usize != pixel_count || side == 0 {
+                    continue;
+                }
+                let mut rgba = vec![0u8; pixel_count * 4];
+                let mut revealed = 0usize;
+                for (idx, px) in raw.chunks_exact(4).enumerate() {
+                    let fog_r = px[2];
+                    if fog_r < 128 {
+                        revealed += 1;
+                    }
+                    let alpha = ((fog_r as f32) * 0.78).round().clamp(0.0, 255.0) as u8;
+                    let o = idx * 4;
+                    rgba[o] = 8;
+                    rgba[o + 1] = 12;
+                    rgba[o + 2] = 22;
+                    rgba[o + 3] = alpha;
+                }
+                let pct = (revealed as f32 / pixel_count as f32) * 100.0;
+                let png_bytes = crate::map_gen::encode_rgba_png(&rgba, side, side).ok();
+                return (true, pct, png_bytes);
+            }
+        }
+    }
+    (false, 100.0, None)
+}
+
+/// Extracts `(total_slots, Vec<(slot_index, item_path, count)>)` from `mInventoryStacks`.
+fn extract_inventory_stacks(
+    properties: &HashMap<String, PropertyValue>,
+) -> Option<(usize, Vec<(usize, String, i32)>)> {
+    let PropertyValue::Array(items) = properties.get("mInventoryStacks")? else {
+        return None;
+    };
+    let total_slots = items.len();
+    let mut stacks = Vec::new();
+    for (slot_idx, entry) in items.iter().enumerate() {
+        let PropertyValue::Struct(StructValue::Properties(map)) = entry else {
+            continue;
+        };
+        let Some(PropertyValue::Struct(StructValue::InventoryItem { item_name })) = map.get("Item")
+        else {
+            continue;
+        };
+        if item_name.is_empty() {
+            continue;
+        }
+        let count = match map.get("NumItems") {
+            Some(PropertyValue::Int(n)) => *n,
+            _ => 1,
+        };
+        if count > 0 {
+            stacks.push((slot_idx, item_name.clone(), count));
+        }
+    }
+    Some((total_slots, stacks))
+}
+
+fn classify_inventory_owner(
+    parent_actor_name: &str,
+    actor_type_path: Option<&str>,
+    struct_meta: Option<(&str, &str)>,
+) -> (&'static str, String) {
+    let tp = actor_type_path.unwrap_or("");
+    if tp.contains("Char_Player")
+        || tp.contains("FGPlayerState")
+        || parent_actor_name.contains("Char_Player")
+        || parent_actor_name.contains("PlayerState")
+    {
+        return ("Pioneer", "Pioneer Inventory".to_string());
+    }
+    if tp.contains("Storage")
+        || tp.contains("Container")
+        || tp.contains("Depot")
+        || tp.contains("FluidTank")
+        || parent_actor_name.contains("Storage")
+    {
+        let name = struct_meta
+            .map(|(n, _)| n.to_string())
+            .unwrap_or_else(|| "Storage Container".to_string());
+        return ("Storage", name);
+    }
+    if tp.contains("WheeledVehicle")
+        || tp.contains("Locomotive")
+        || tp.contains("FreightWagon")
+        || tp.contains("Drone")
+        || tp.contains("Tractor")
+        || tp.contains("Truck")
+        || tp.contains("Explorer")
+    {
+        let name = struct_meta
+            .map(|(n, _)| n.to_string())
+            .unwrap_or_else(|| "Vehicle".to_string());
+        return ("Vehicle", name);
+    }
+    if let Some((display_name, _cat)) = struct_meta {
+        return ("Machine", display_name.to_string());
+    }
+    if tp.contains("Build_") || parent_actor_name.contains("Build_") {
+        let raw = tp
+            .rsplit('.')
+            .next()
+            .unwrap_or(parent_actor_name.rsplit('.').next().unwrap_or("Machine"));
+        return ("Machine", raw.to_string());
+    }
+    ("Other", "Other".to_string())
+}
+
+fn classify_slot_role(component_instance_name: &str) -> &'static str {
+    let suffix = component_instance_name
+        .rsplit('.')
+        .next()
+        .unwrap_or(component_instance_name);
+    if suffix.contains("StorageInventory") {
+        "Storage"
+    } else if suffix.contains("InputInventory") {
+        "Input"
+    } else if suffix.contains("OutputInventory") {
+        "Output"
+    } else if suffix.contains("FuelInventory") {
+        "Fuel"
+    } else if suffix.contains("TrashInventory") {
+        "Trash"
+    } else if suffix.contains("Inventory") {
+        "Inventory"
+    } else {
+        "Other"
+    }
+}
+
+fn build_inventory_summaries_and_catalog(
+    parsed_save: &ParsedSaveGame,
+    player_structures: &[PlayerStructureSummary],
+) -> (Vec<InventorySummary>, Vec<ItemCatalogEntry>) {
+    let mut actor_types: HashMap<&str, &str> = HashMap::new();
+    for lvl in &parsed_save.levels {
+        for actor in &lvl.actors {
+            actor_types.insert(actor.instance_name.as_str(), actor.type_path.as_str());
+        }
+    }
+    let mut struct_lookup: HashMap<&str, (&str, &str)> = HashMap::new();
+    for st in player_structures {
+        struct_lookup.insert(
+            st.instance_name.as_str(),
+            (st.display_name.as_str(), st.category.as_str()),
+        );
+    }
+
+    let mut inventories = Vec::new();
+    let mut catalog_map: HashMap<String, ItemCatalogEntry> = HashMap::new();
+
+    for lvl in &parsed_save.levels {
+        for comp in &lvl.inventory_components {
+            let parent = comp.parent_actor_name.as_str();
+            let (owner_type, owner_display_name) = classify_inventory_owner(
+                parent,
+                actor_types.get(parent).copied(),
+                struct_lookup.get(parent).copied(),
+            );
+            let slot_role = classify_slot_role(&comp.instance_name).to_string();
+
+            let mut enriched_items = Vec::with_capacity(comp.stacks.len());
+            for (slot_index, item_path, count) in &comp.stacks {
+                let meta = crate::item_registry::lookup_item_metadata(item_path);
+                let cnt = *count as i64;
+                let entry = catalog_map
+                    .entry(item_path.clone())
+                    .or_insert_with(|| ItemCatalogEntry {
+                        item_path: item_path.clone(),
+                        display_name: meta.display_name.clone(),
+                        category: meta.category.clone(),
+                        mod_source: meta.mod_source.clone(),
+                        is_known: meta.is_known,
+                        total_count: 0,
+                        pioneer_count: 0,
+                        storage_count: 0,
+                        machine_count: 0,
+                    });
+                entry.total_count += cnt;
+                match owner_type {
+                    "Pioneer" => entry.pioneer_count += cnt,
+                    "Storage" => entry.storage_count += cnt,
+                    "Machine" | "Vehicle" => entry.machine_count += cnt,
+                    _ => {}
+                }
+
+                enriched_items.push(InventoryItemStack {
+                    slot_index: *slot_index,
+                    item_path: item_path.clone(),
+                    display_name: meta.display_name,
+                    category: meta.category,
+                    mod_source: meta.mod_source,
+                    count: *count,
+                });
+            }
+
+            inventories.push(InventorySummary {
+                component_instance_name: comp.instance_name.clone(),
+                owner_instance_name: comp.parent_actor_name.clone(),
+                owner_type: owner_type.to_string(),
+                owner_display_name,
+                slot_role,
+                total_slots: comp.total_slots,
+                items: enriched_items,
+            });
+        }
+    }
+
+    let mut item_catalog: Vec<ItemCatalogEntry> = catalog_map.into_values().collect();
+    item_catalog.sort_by(|a, b| {
+        b.total_count
+            .cmp(&a.total_count)
+            .then_with(|| a.display_name.cmp(&b.display_name))
+    });
+
+    (inventories, item_catalog)
 }
 
 /// Helper to standardize purity strings.
@@ -1381,4 +2136,208 @@ pub fn extract_clean_name(path: &str) -> String {
             }
         }
     }
+}
+
+/// Rotates a 3D vector by a unit quaternion `[qx, qy, qz, qw]`.
+#[inline]
+fn rotate_vec3_by_quat(v: [f64; 3], q: [f64; 4]) -> [f64; 3] {
+    let [x, y, z] = v;
+    let [qx, qy, qz, qw] = q;
+    let cx = qy * z - qz * y;
+    let cy = qz * x - qx * z;
+    let cz = qx * y - qy * x;
+    [
+        x + 2.0 * (qw * cx + qy * cz - qz * cy),
+        y + 2.0 * (qw * cy + qz * cx - qx * cz),
+        z + 2.0 * (qw * cz + qx * cy - qy * cx),
+    ]
+}
+
+#[inline]
+fn get_vec3_prop(map: &HashMap<String, PropertyValue>, key: &str) -> Option<[f64; 3]> {
+    match map.get(key) {
+        Some(PropertyValue::Struct(StructValue::Vector { x, y, z })) => Some([*x, *y, *z]),
+        _ => None,
+    }
+}
+
+/// Extracts world-space cubic Hermite spline points `[x, y, z]` (in cm) from `mSplineData` if present.
+fn extract_spline_points(
+    properties: &HashMap<String, PropertyValue>,
+    transform: &Transform,
+) -> Option<Vec<[f64; 3]>> {
+    let PropertyValue::Array(items) = properties.get("mSplineData")? else {
+        return None;
+    };
+    if items.is_empty() {
+        return None;
+    }
+
+    let q = transform.rotation.map(|v| v as f64);
+    let [tx, ty, tz] = transform.translation.map(|v| v as f64);
+
+    struct SplineNode {
+        loc: [f64; 3],
+        arrive: [f64; 3],
+        leave: [f64; 3],
+    }
+
+    let mut nodes = Vec::with_capacity(items.len());
+    for item in items {
+        let PropertyValue::Struct(StructValue::Properties(map)) = item else {
+            continue;
+        };
+        let Some(local_loc) = get_vec3_prop(map, "Location") else {
+            continue;
+        };
+        let r_loc = rotate_vec3_by_quat(local_loc, q);
+        let arrive = get_vec3_prop(map, "ArriveTangent")
+            .map(|v| rotate_vec3_by_quat(v, q))
+            .unwrap_or([0.0, 0.0, 0.0]);
+        let leave = get_vec3_prop(map, "LeaveTangent")
+            .map(|v| rotate_vec3_by_quat(v, q))
+            .unwrap_or([0.0, 0.0, 0.0]);
+
+        nodes.push(SplineNode {
+            loc: [tx + r_loc[0], ty + r_loc[1], tz + r_loc[2]],
+            arrive,
+            leave,
+        });
+    }
+
+    if nodes.len() < 2 {
+        return None;
+    }
+
+    const HERMITE_STEPS: usize = 10;
+    let mut pts = Vec::with_capacity((nodes.len() - 1) * HERMITE_STEPS + 1);
+    pts.push(nodes[0].loc);
+
+    for pair in nodes.windows(2) {
+        let p0 = pair[0].loc;
+        let t0 = pair[0].leave;
+        let p1 = pair[1].loc;
+        let t1 = pair[1].arrive;
+
+        let t_mag_sq = t0[0] * t0[0] + t0[1] * t0[1] + t0[2] * t0[2]
+            + t1[0] * t1[0] + t1[1] * t1[1] + t1[2] * t1[2];
+        if t_mag_sq < 1e-3 {
+            pts.push(p1);
+            continue;
+        }
+
+        for step in 1..=HERMITE_STEPS {
+            let t = step as f64 / HERMITE_STEPS as f64;
+            let t2 = t * t;
+            let t3 = t2 * t;
+            let h00 = 2.0 * t3 - 3.0 * t2 + 1.0;
+            let h10 = t3 - 2.0 * t2 + t;
+            let h01 = -2.0 * t3 + 3.0 * t2;
+            let h11 = t3 - t2;
+            pts.push([
+                h00 * p0[0] + h10 * t0[0] + h01 * p1[0] + h11 * t1[0],
+                h00 * p0[1] + h10 * t0[1] + h01 * p1[1] + h11 * t1[1],
+                h00 * p0[2] + h10 * t0[2] + h01 * p1[2] + h11 * t1[2],
+            ]);
+        }
+    }
+
+    Some(pts)
+}
+
+/// Parses `FGLightweightBuildableSubsystem`'s custom binary instance map after its property list.
+fn parse_lightweight_buildables(
+    rdr: &mut Cursor<&[u8]>,
+    max_offset: u64,
+    base_offset: usize,
+    subsystem_object_size_offset: usize,
+    subsystem_all_objects_size_offset: usize,
+) -> Vec<LightweightBuildableInstance> {
+    let mut instances = Vec::new();
+    if rdr.position() + 12 > max_offset {
+        return instances;
+    }
+
+    // Header after `None`: 4-byte trailing/version + 4-byte flags/version + 4-byte class map count
+    // (Some versions have 4 bytes before map_count, others 8 bytes; check which yields a valid count.)
+    let _v0 = rdr.read_u32::<LittleEndian>().unwrap_or(0);
+    let _version = rdr.read_u32::<LittleEndian>().unwrap_or(0);
+    let map_count = rdr.read_u32::<LittleEndian>().unwrap_or(0);
+
+    if map_count == 0 || map_count > 10_000 {
+        return instances;
+    }
+
+    for _ in 0..map_count {
+        if rdr.position() >= max_offset {
+            break;
+        }
+        let Ok(class_ref) = read_object_reference(rdr) else {
+            break;
+        };
+        let inst_count_offset = base_offset + rdr.position() as usize;
+        let Ok(inst_count) = rdr.read_u32::<LittleEndian>() else {
+            break;
+        };
+        if inst_count > 500_000 {
+            break;
+        }
+        instances.reserve((inst_count as usize).min(65_536));
+
+        for _ in 0..inst_count {
+            if rdr.position() + 80 > max_offset {
+                return instances;
+            }
+            let entry_start = base_offset + rdr.position() as usize;
+            let Ok(rx) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(ry) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(rz) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(rw) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let translation_offset = base_offset + rdr.position() as usize;
+            let Ok(tx) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(ty) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(tz) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(sx) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(sy) = rdr.read_f64::<LittleEndian>() else { return instances; };
+            let Ok(sz) = rdr.read_f64::<LittleEndian>() else { return instances; };
+
+            // CustomizationData: Swatch, Material, Pattern, Skin, PrimaryColor (16B), SecondaryColor (16B), 9B flags
+            for _ in 0..4 {
+                if read_object_reference(rdr).is_err() {
+                    return instances;
+                }
+            }
+            if rdr.position() + 41 > max_offset {
+                return instances;
+            }
+            rdr.set_position(rdr.position() + 41);
+
+            // BuiltWithRecipe, BlueprintProxy, + 9B trailing flags/type
+            if read_object_reference(rdr).is_err() || read_object_reference(rdr).is_err() {
+                return instances;
+            }
+            if rdr.position() + 9 > max_offset {
+                return instances;
+            }
+            rdr.set_position(rdr.position() + 9);
+            let entry_end = base_offset + rdr.position() as usize;
+
+            instances.push(LightweightBuildableInstance {
+                type_path: class_ref.path_name.clone(),
+                transform: Transform {
+                    rotation: [rx as f32, ry as f32, rz as f32, rw as f32],
+                    translation: [tx as f32, ty as f32, tz as f32],
+                    scale: [sx as f32, sy as f32, sz as f32],
+                },
+                translation_offset,
+                inst_count_offset,
+                entry_start,
+                entry_end,
+                subsystem_object_size_offset,
+                subsystem_all_objects_size_offset,
+            });
+        }
+    }
+
+    instances
 }

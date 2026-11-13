@@ -118,6 +118,25 @@ pub enum StructValue {
     RawBytes(Vec<u8>),
 }
 
+/// A single lightweight buildable instance extracted from `FGLightweightBuildableSubsystem`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LightweightBuildableInstance {
+    pub type_path: String,
+    pub transform: Transform,
+    #[serde(default)]
+    pub translation_offset: usize,
+    #[serde(skip)]
+    pub inst_count_offset: usize,
+    #[serde(skip)]
+    pub entry_start: usize,
+    #[serde(skip)]
+    pub entry_end: usize,
+    #[serde(skip)]
+    pub subsystem_object_size_offset: usize,
+    #[serde(skip)]
+    pub subsystem_all_objects_size_offset: usize,
+}
+
 /// Actor and Object combined with headers and properties.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedActor {
@@ -130,6 +149,20 @@ pub struct ParsedActor {
     pub properties: HashMap<String, PropertyValue>,
     #[serde(default)]
     pub translation_offset: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lightweight_instances: Vec<LightweightBuildableInstance>,
+    #[serde(skip)]
+    pub fog_raw_data_range: Option<(usize, usize)>,
+    #[serde(skip)]
+    pub payload_start_abs: usize,
+    #[serde(skip)]
+    pub object_size: usize,
+    #[serde(skip)]
+    pub object_size_offset: usize,
+    #[serde(skip)]
+    pub all_objects_size_offset: usize,
+    #[serde(skip)]
+    pub object_ue5_version: i32,
 }
 
 /// Summary of an artifact or collectible (Somersloop or Mercer Sphere).
@@ -188,6 +221,95 @@ pub struct PlayerStructureSummary {
     pub instance_name: String,
     pub type_path: String,
     pub transform: Transform,
+    #[serde(default)]
+    pub display_name: String,
+    #[serde(default)]
+    pub category: String,
+    #[serde(default)]
+    pub mod_source: String,
+    #[serde(default)]
+    pub footprint: [f32; 2],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spline_points: Option<Vec<[f64; 3]>>,
+    #[serde(default)]
+    pub is_lightweight: bool,
+    #[serde(default)]
+    pub translation_offset: usize,
+}
+
+/// Raw parsed inventory component extracted from a level's component stream.
+#[derive(Debug, Clone)]
+pub struct ParsedInventoryComponent {
+    pub instance_name: String,
+    pub parent_actor_name: String,
+    pub total_slots: usize,
+    pub stacks: Vec<(usize, String, i32)>,
+    pub all_objects_size_offset: usize,
+    pub object_size_offset: usize,
+    pub payload_start_abs: usize,
+    pub object_size: usize,
+    pub object_ue5_version: i32,
+}
+
+/// A single enriched item stack inside an inventory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InventoryItemStack {
+    #[serde(default)]
+    pub slot_index: usize,
+    pub item_path: String,
+    pub display_name: String,
+    pub category: String,
+    pub mod_source: String,
+    pub count: i32,
+}
+
+/// Inventory contents belonging to a pioneer, storage container, machine, or vehicle.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InventorySummary {
+    #[serde(default)]
+    pub component_instance_name: String,
+    pub owner_instance_name: String,
+    pub owner_type: String,
+    pub owner_display_name: String,
+    pub slot_role: String,
+    #[serde(default)]
+    pub total_slots: usize,
+    pub items: Vec<InventoryItemStack>,
+}
+
+/// Aggregated item entry in the dynamically populated save item catalog.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ItemCatalogEntry {
+    pub item_path: String,
+    pub display_name: String,
+    pub category: String,
+    pub mod_source: String,
+    pub is_known: bool,
+    pub total_count: i64,
+    pub pioneer_count: i64,
+    pub storage_count: i64,
+    pub machine_count: i64,
+}
+
+/// A scalar game rule / save variable (`BoolProperty`, `IntProperty`, `FloatProperty`) on
+/// `FGGameRulesSubsystem`, `BP_GameState`, `BP_UnlockSubsystem`, or `BP_PlayerState`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GameRuleVariable {
+    pub actor_instance_name: String,
+    pub actor_label: String,
+    pub property_name: String,
+    pub value_type: String, // "bool" | "int" | "float"
+    pub bool_val: Option<bool>,
+    pub int_val: Option<i32>,
+    pub float_val: Option<f32>,
+}
+
+/// Creative Mode and custom/advanced save game settings extracted from the save.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SaveGameSettings {
+    pub is_creative_mode_enabled: bool,
+    #[serde(default)]
+    pub variables: Vec<GameRuleVariable>,
 }
 
 /// Overall JSON summary extracted for Milestone 1 and Milestone 2 (`rwg_actors.json`).
@@ -204,6 +326,10 @@ pub struct RwgActorsSummary {
     pub drop_pods: Vec<DropPodSummary>,
     pub player_structures: Vec<PlayerStructureSummary>,
     #[serde(default)]
+    pub inventories: Vec<InventorySummary>,
+    #[serde(default)]
+    pub item_catalog: Vec<ItemCatalogEntry>,
+    #[serde(default)]
     pub somersloops: Vec<ArtifactSummary>,
     #[serde(default)]
     pub mercer_spheres: Vec<ArtifactSummary>,
@@ -211,6 +337,14 @@ pub struct RwgActorsSummary {
     pub generated_map_png: Option<Vec<u8>>,
     #[serde(skip)]
     pub generated_heightmap: Option<Vec<u8>>,
+    #[serde(default)]
+    pub has_fog_of_war: bool,
+    #[serde(default)]
+    pub fog_revealed_pct: f32,
+    #[serde(skip)]
+    pub fog_of_war_png: Option<Vec<u8>>,
+    #[serde(default)]
+    pub game_settings: SaveGameSettings,
 }
 
 /// 2D/3D spatial bounds of the world.
@@ -253,12 +387,22 @@ pub struct WorldSnapshot {
     pub resource_deposits: Vec<ResourceDepositSummary>,
     pub drop_pods: Vec<DropPodSummary>,
     pub player_structures: Vec<PlayerStructureSummary>,
+    #[serde(default)]
+    pub inventories: Vec<InventorySummary>,
+    #[serde(default)]
+    pub item_catalog: Vec<ItemCatalogEntry>,
     pub somersloops: Vec<ArtifactSummary>,
     pub mercer_spheres: Vec<ArtifactSummary>,
     pub total_nodes: usize,
     pub total_drop_pods: usize,
     pub total_somersloops: usize,
     pub total_mercer_spheres: usize,
+    #[serde(default)]
+    pub has_fog_of_war: bool,
+    #[serde(default)]
+    pub fog_revealed_pct: f32,
+    #[serde(default)]
+    pub game_settings: SaveGameSettings,
 }
 
 impl RwgActorsSummary {
@@ -326,12 +470,17 @@ impl RwgActorsSummary {
             resource_deposits: self.resource_deposits.clone(),
             drop_pods: self.drop_pods.clone(),
             player_structures: self.player_structures.clone(),
+            inventories: self.inventories.clone(),
+            item_catalog: self.item_catalog.clone(),
             somersloops: self.somersloops.clone(),
             mercer_spheres: self.mercer_spheres.clone(),
             total_nodes: self.resource_nodes.len(),
             total_drop_pods: self.drop_pods.len(),
             total_somersloops: self.somersloops.len(),
             total_mercer_spheres: self.mercer_spheres.len(),
+            has_fog_of_war: self.has_fog_of_war,
+            fog_revealed_pct: self.fog_revealed_pct,
+            game_settings: self.game_settings.clone(),
         }
     }
 }

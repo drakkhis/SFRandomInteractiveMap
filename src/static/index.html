@@ -1030,6 +1030,10 @@
         <span id="save-modified-badge" class="save-badge-modified" style="display: none;">Modified</span>
       </button>
 
+      <button class="btn-download-save" id="btn-save-to-game" onclick="saveToGameFolder()" style="background: linear-gradient(135deg, #16a34a, #15803d); border-color: #22c55e;" title="Compile and save directly into your Satisfactory SaveGames folder">
+        <span>Save to Game</span>
+      </button>
+
       <button class="btn-refresh" id="btn-refresh" onclick="loadWorldData()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
@@ -1315,6 +1319,48 @@
         </div>
         <span class="filter-count" id="count-deposits">0</span>
       </label>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-fog" checked onchange="toggleFogLayer()">
+          <div class="filter-color-dot" style="background: #334155; border: 1px solid #64748b;"></div>
+          <span class="filter-name">Map Fog of War</span>
+        </div>
+        <span class="filter-count" id="fog-revealed-pct" style="color: #94a3b8;">–</span>
+      </label>
+      <div style="padding: 2px 10px 6px 24px;">
+        <button id="btn-clear-fog" onclick="clearMapFog()" style="width: 100%; background: rgba(56, 189, 248, 0.14); border: 1px solid rgba(56, 189, 248, 0.4); color: #7dd3fc; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
+          Clear Map Fog
+        </button>
+      </div>
+      <label class="filter-item">
+        <div class="filter-left">
+          <input type="checkbox" id="layer-structures" checked onchange="toggleSpecialLayer('structures')">
+          <div class="filter-color-dot" style="background: #f97316;"></div>
+          <span class="filter-name">Player Structures</span>
+        </div>
+        <span class="filter-count" id="count-structures" style="color: #fb923c;">0</span>
+      </label>
+      <div id="structures-controls" style="padding: 6px 10px 8px 24px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <div style="display: flex; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 6px;">
+          <label><input type="checkbox" class="struct-cat-chk" value="Production" checked onchange="onStructureFilterChange()"> Prod</label>
+          <label><input type="checkbox" class="struct-cat-chk" value="Power" checked onchange="onStructureFilterChange()"> Power</label>
+          <label><input type="checkbox" class="struct-cat-chk" value="Logistics" checked onchange="onStructureFilterChange()"> Logi</label>
+          <label><input type="checkbox" class="struct-cat-chk" value="Foundation" checked onchange="onStructureFilterChange()"> Found</label>
+          <label><input type="checkbox" class="struct-cat-chk" value="Transportation" checked onchange="onStructureFilterChange()"> Trans</label>
+          <label><input type="checkbox" class="struct-cat-chk" value="Farming" checked onchange="onStructureFilterChange()"> Farm</label>
+          <label><input type="checkbox" class="struct-cat-chk" value="Special" checked onchange="onStructureFilterChange()"> Spec</label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 6px;">
+          <span>Z (m):</span>
+          <input type="number" id="struct-z-min" placeholder="Min" onchange="onStructureFilterChange()" style="width: 54px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 2px 4px; border-radius: 3px; font-size: 11px;">
+          <span>–</span>
+          <input type="number" id="struct-z-max" placeholder="Max" onchange="onStructureFilterChange()" style="width: 54px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 2px 4px; border-radius: 3px; font-size: 11px;">
+          <button onclick="resetStructureZFilter()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #ccc; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">Reset</button>
+        </div>
+        <button id="btn-box-select" onclick="toggleBoxSelectMode()" style="width: 100%; background: rgba(249,115,22,0.18); border: 1px solid rgba(249,115,22,0.45); color: #fdba74; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600;">
+          Box Select Structures (or Shift+Drag)
+        </button>
+      </div>
 
       <div class="sidebar-section-title">
         <span>Resource Nodes</span>
@@ -1323,6 +1369,144 @@
 
       <div id="nodes-filter-list">
         <!-- Dynamically populated resource filters -->
+      </div>
+
+      <div class="sidebar-section-title" style="margin-top: 10px;">
+        <span>Inventory &amp; Items</span>
+        <span id="inv-unique-count" style="color: var(--accent-orange);">0</span>
+      </div>
+      <div style="padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 6px;">
+        <button onclick="openInventoryModal()" style="width: 100%; background: rgba(56, 189, 248, 0.16); border: 1px solid rgba(56, 189, 248, 0.45); color: #7dd3fc; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;">
+          Open Inventory Table
+        </button>
+        <button onclick="openGameSettingsModal()" style="width: 100%; background: rgba(168, 85, 247, 0.16); border: 1px solid rgba(168, 85, 247, 0.45); color: #d8b4fe; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;">
+          Game Mode &amp; Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Mode & Save Settings Modal -->
+  <div id="game-settings-modal" style="display: none; position: fixed; inset: 0; z-index: 2050; background: rgba(8, 11, 18, 0.78); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 24px;">
+    <div style="width: min(860px, 95vw); max-height: 86vh; background: #111827; border: 1px solid rgba(168, 85, 247, 0.45); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.75); display: flex; flex-direction: column; overflow: hidden; color: #e2e8f0;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(15, 23, 42, 0.9);">
+        <div>
+          <div style="font-size: 15px; font-weight: 700; color: #f8fafc;">Game Mode &amp; Save Variables</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Toggle Creative Mode, Advanced Game Settings, and custom/modded save variables</div>
+        </div>
+        <button onclick="closeGameSettingsModal()" style="background: #334155; color: #f8fafc; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 600;">Close</button>
+      </div>
+      <div style="padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(88, 28, 135, 0.16); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #e9d5ff; cursor: pointer;">
+          <input type="checkbox" id="gs-creative-mode" />
+          Creative / Advanced Game Settings Enabled (Save Header)
+        </label>
+        <input type="text" id="gs-search" placeholder="Filter variables..." oninput="renderGameSettingsModal()" style="width: 220px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 5px 9px; font-size: 12px;" />
+      </div>
+      <div style="overflow: auto; flex: 1; padding: 8px 18px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <thead style="position: sticky; top: 0; background: #0f172a; color: #94a3b8; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <tr>
+              <th style="padding: 8px 10px;">Subsystem</th>
+              <th style="padding: 8px 10px;">Variable</th>
+              <th style="padding: 8px 10px;">Type</th>
+              <th style="padding: 8px 10px; text-align: right;">Value</th>
+            </tr>
+          </thead>
+          <tbody id="gs-vars-body"></tbody>
+        </table>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(15, 23, 42, 0.9);">
+        <button id="btn-apply-gs" onclick="applyGameSettings()" style="background: #9333ea; color: #fff; border: none; border-radius: 6px; padding: 7px 14px; cursor: pointer; font-size: 12px; font-weight: 600;">Stage Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inventory & Items Modal -->
+  <div id="inventory-modal" style="display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(8, 11, 18, 0.78); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 24px;">
+    <div style="width: min(1040px, 95vw); max-height: 88vh; background: #111827; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.75); display: flex; flex-direction: column; overflow: hidden; color: #e2e8f0;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(15, 23, 42, 0.9); gap: 12px; flex-wrap: wrap;">
+        <div>
+          <div style="font-size: 15px; font-weight: 700; color: #f8fafc;">Save Inventory &amp; Item Catalog</div>
+          <div id="inv-modal-subtitle" style="font-size: 11px; color: #94a3b8; margin-top: 2px;">Dynamically populated from pioneer, storage, and machines</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button id="inv-tab-catalog-btn" onclick="switchInventoryTab('catalog')" style="background: #0284c7; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 600;">Item Catalog</button>
+          <button id="inv-tab-editor-btn" onclick="switchInventoryTab('editor')" style="background: #1e293b; color: #cbd5e1; border: 1px solid #334155; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 600;">Edit Inventories</button>
+          <button onclick="closeInventoryModal()" style="background: #334155; color: #f8fafc; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 600; margin-left: 6px;">Close</button>
+        </div>
+      </div>
+
+      <!-- Scan Mod Folder Bar -->
+      <div style="display: flex; align-items: center; gap: 8px; padding: 8px 18px; background: rgba(15, 23, 42, 0.72); border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
+        <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Mods Folder:</span>
+        <input type="text" id="mods-dir-input" placeholder="Leave blank to auto-detect, or enter e.g. C:\...\Satisfactory\FactoryGame\Mods" style="flex: 1 1 260px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 5px; padding: 5px 8px; font-size: 11px;" />
+        <button onclick="scanModFolder()" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 11px; font-weight: 600;">Scan Mod Folder</button>
+        <span id="mods-scan-status" style="font-size: 11px; color: #94a3b8;"></span>
+      </div>
+
+      <!-- Tab 1: Catalog -->
+      <div id="inv-tab-catalog" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(15, 23, 42, 0.5);">
+          <input type="text" id="inv-search" placeholder="Search item name or descriptor..." oninput="renderInventoryTable()" style="flex: 1 1 220px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 12px;" />
+          <select id="inv-owner-filter" onchange="renderInventoryTable()" style="background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 8px; font-size: 12px;">
+            <option value="All">All Sources</option>
+            <option value="Pioneer">Pioneer Only</option>
+            <option value="Storage">Storage Only</option>
+            <option value="Machine">Machines Only</option>
+          </select>
+          <select id="inv-mod-filter" onchange="renderInventoryTable()" style="background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 8px; font-size: 12px;">
+            <option value="All">All Mods</option>
+          </select>
+          <select id="inv-cat-filter" onchange="renderInventoryTable()" style="background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 8px; font-size: 12px;">
+            <option value="All">All Categories</option>
+          </select>
+        </div>
+        <div style="overflow: auto; flex: 1;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead style="position: sticky; top: 0; background: #0f172a; color: #94a3b8; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <tr>
+                <th style="padding: 9px 14px;">Item</th>
+                <th style="padding: 9px 10px;">Mod</th>
+                <th style="padding: 9px 10px;">Category</th>
+                <th style="padding: 9px 10px; text-align: right;">Pioneer</th>
+                <th style="padding: 9px 10px; text-align: right;">Storage</th>
+                <th style="padding: 9px 10px; text-align: right;">Machines</th>
+                <th style="padding: 9px 14px; text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody id="inv-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 2: Inventory Editor (Pioneer / Storage / Machines) -->
+      <div id="inv-tab-editor" style="display: none; flex-direction: column; flex: 1; overflow: hidden;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(15, 23, 42, 0.5); align-items: center;">
+          <input type="text" id="inv-edit-owner-search" placeholder="Filter container / machine..." oninput="populateInventoryOwnerSelect()" style="width: 200px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 12px;" />
+          <select id="inv-edit-owner-select" onchange="renderSelectedInventorySlots()" style="flex: 1 1 300px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 8px; font-size: 12px;"></select>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(30, 41, 59, 0.5); align-items: center;">
+          <span style="font-size: 11px; color: #7dd3fc; font-weight: 600;">Add Item:</span>
+          <input type="text" id="inv-add-item-input" list="all-known-items-datalist" placeholder="Type or select any base game or mod item..." style="flex: 1 1 280px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 10px; font-size: 12px;" />
+          <datalist id="all-known-items-datalist"></datalist>
+          <input type="number" id="inv-add-item-count" value="100" min="1" style="width: 80px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; padding: 6px 8px; font-size: 12px;" />
+          <button onclick="addItemToFirstEmptySlot()" style="background: #0891b2; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 600;">Add to Empty Slot &amp; Save</button>
+        </div>
+        <div style="overflow: auto; flex: 1; padding: 10px 18px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead style="position: sticky; top: 0; background: #0f172a; color: #94a3b8; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <tr>
+                <th style="padding: 8px 10px; width: 64px;">Slot</th>
+                <th style="padding: 8px 10px;">Item</th>
+                <th style="padding: 8px 10px;">Mod</th>
+                <th style="padding: 8px 10px; width: 110px;">Count</th>
+                <th style="padding: 8px 10px; width: 160px; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inv-editor-slots-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -1346,14 +1530,102 @@
   <!-- 3D Floating Tooltip -->
   <div id="tooltip-3d"></div>
 
+  <!-- Bulk Move Bar (for Box-Selected Structures) -->
+  <div id="bulk-move-bar" style="display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1200; background: rgba(18, 22, 31, 0.96); border: 1px solid #22d3ee; border-radius: 10px; padding: 10px 16px; box-shadow: 0 8px 28px rgba(0,0,0,0.65); color: #e2e8f0; font-size: 12px; align-items: center; gap: 10px; flex-wrap: wrap;">
+    <span style="color: #22d3ee; font-weight: 700;"><span id="bulk-sel-count">0</span> structures selected</span>
+    <label style="display:flex; align-items:center; gap:4px;">dX (m): <input type="number" id="bulk-dx-m" value="0" step="1" style="width: 64px; background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:4px; padding:3px 6px; font-size:12px;" /></label>
+    <label style="display:flex; align-items:center; gap:4px;">dY (m): <input type="number" id="bulk-dy-m" value="0" step="1" style="width: 64px; background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:4px; padding:3px 6px; font-size:12px;" /></label>
+    <label style="display:flex; align-items:center; gap:4px;">dZ (m): <input type="number" id="bulk-dz-m" value="0" step="1" style="width: 64px; background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:4px; padding:3px 6px; font-size:12px;" /></label>
+    <button onclick="applyBulkStructureMove()" style="background: #0891b2; color: white; border: none; border-radius: 5px; padding: 5px 11px; font-weight: 600; cursor: pointer; font-size: 12px;">Apply Move</button>
+    <button id="btn-drag-move-2d" onclick="toggleDragMoveMode()" style="background: #1e293b; color: #f8fafc; border: 1px solid #475569; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 12px;">Drag Move: OFF</button>
+    <button id="btn-world-snap" onclick="toggleWorldSnap()" style="background: #1e293b; color: #f8fafc; border: 1px solid #475569; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 12px;" title="Snap primary selected structure onto Satisfactory's 8m World Grid">World Snap (8m): OFF</button>
+    <button onclick="duplicateSelectedStructures()" style="background: #7c3aed; color: #fff; border: none; border-radius: 5px; padding: 5px 10px; font-weight: 600; cursor: pointer; font-size: 12px;" title="Duplicate selected buildables (+8m X if offset is 0)">Duplicate</button>
+    <button onclick="copySelectedStructures()" style="background: #2563eb; color: #fff; border: none; border-radius: 5px; padding: 5px 10px; font-weight: 600; cursor: pointer; font-size: 12px;">Copy</button>
+    <button id="btn-paste-structs" onclick="pasteCopiedStructures()" style="display:none; background: #0284c7; color: #fff; border: none; border-radius: 5px; padding: 5px 10px; font-weight: 600; cursor: pointer; font-size: 12px;">Paste</button>
+    <button onclick="saveSelectionAsBlueprint()" style="background: #0d9488; color: #fff; border: none; border-radius: 5px; padding: 5px 10px; font-weight: 600; cursor: pointer; font-size: 12px;" title="Export selected buildings as Satisfactory .sbp + .sbpcfg Blueprint">Save Blueprint</button>
+    <button onclick="deleteSelectedStructures()" style="background: #dc2626; color: #fff; border: none; border-radius: 5px; padding: 5px 10px; font-weight: 600; cursor: pointer; font-size: 12px;">Delete</button>
+    <button onclick="clearStructureSelection()" style="background: #334155; color: #e2e8f0; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 12px;">Clear</button>
+  </div>
+
   <!-- Main 2D & 3D Map Containers -->
   <div id="map"></div>
   <div id="map-3d"></div>
+  <div id="box-select-3d" style="display:none; position:fixed; border:1.5px dashed #22d3ee; background:rgba(34,211,238,0.14); pointer-events:none; z-index:1100;"></div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getStructureColor(category) {
+      switch (category) {
+        case 'Production': return '#f97316';
+        case 'Power': return '#eab308';
+        case 'Logistics': return '#06b6d4';
+        case 'Foundation': return '#64748b';
+        case 'Transportation': return '#3b82f6';
+        case 'Farming': return '#22c55e';
+        case 'Special': return '#a855f7';
+        default: return '#94a3b8';
+      }
+    }
+
+    const pendingChanges = {
+      clearFog: false,
+      gameSettings: null, // { is_creative_mode_enabled, updates: [] }
+      inventoryEdits: [], // [{ component_instance_name, edits: [{ slot_index, item_path, count }] }]
+      moveStructures: [], // [{ instance_names, dx, dy, dz }]
+      duplicateStructures: [], // [{ instance_names, dx, dy, dz }]
+      deleteStructures: [], // [ [instance_names...] ]
+    };
+
+    function countPendingChanges() {
+      let n = 0;
+      if (pendingChanges.clearFog) n += 1;
+      if (pendingChanges.gameSettings) {
+        n += (pendingChanges.gameSettings.updates?.length || 0);
+        if (pendingChanges.gameSettings.is_creative_mode_enabled !== undefined) n += 1;
+      }
+      for (const inv of pendingChanges.inventoryEdits) {
+        n += (inv.edits?.length || 0);
+      }
+      n += pendingChanges.moveStructures.length;
+      n += pendingChanges.duplicateStructures.length;
+      n += pendingChanges.deleteStructures.length;
+      return n;
+    }
+
+    function updatePendingBadge() {
+      const btn = document.getElementById('btn-download-save');
+      if (!btn) return;
+      const count = countPendingChanges();
+      const span = btn.querySelector('span');
+      if (count > 0) {
+        btn.classList.add('has-changes');
+        if (span) span.innerText = `Save & Compile (${count})`;
+      } else {
+        if (span) span.innerText = 'Download Save';
+      }
+    }
+
+    function resetPendingChanges() {
+      pendingChanges.clearFog = false;
+      pendingChanges.gameSettings = null;
+      pendingChanges.inventoryEdits = [];
+      pendingChanges.moveStructures = [];
+      pendingChanges.duplicateStructures = [];
+      pendingChanges.deleteStructures = [];
+      updatePendingBadge();
+    }
+
     // Color palette for Satisfactory resources (Vanilla + SF+ + Refined Power)
     const RESOURCE_COLORS = {
       'Iron': '#d35400',
@@ -1429,6 +1701,7 @@
       maxZoom: 3,
       zoomSnap: 0.25,
       zoomDelta: 0.5,
+      boxZoom: false,
       attributionControl: false
     }).setView([0, 0], -2);
 
@@ -1439,6 +1712,12 @@
       opacity: 0.85,
       interactive: false
     });
+    let fogLayer = L.imageOverlay('/api/fog.png', activeLandmassBounds, {
+      opacity: 1.0,
+      interactive: false
+    });
+
+    const structuresCanvasRenderer = L.canvas({ padding: 0.5 });
 
     // Layer groups
     const layerGroups = {
@@ -1447,6 +1726,7 @@
       mercerSpheres: L.layerGroup().addTo(map),
       dropPods: L.layerGroup().addTo(map),
       deposits: L.layerGroup(),
+      structures: L.layerGroup().addTo(map),
       nodesByCategory: {}
     };
 
@@ -2260,10 +2540,24 @@
     async function downloadActiveSave() {
       const btn = document.getElementById('btn-download-save');
       btn.disabled = true;
-      showLoading('Preparing modified .sav download...');
+      const hasPending = countPendingChanges() > 0;
+      showLoading(hasPending ? 'Compiling staged changes into .sav...' : 'Preparing modified .sav download...');
       try {
-        const res = await fetch('/api/save/download');
-        if (!res.ok) throw new Error('Failed downloading save file');
+        const res = hasPending
+          ? await fetch('/api/save/compile', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                clear_fog: pendingChanges.clearFog,
+                game_settings: pendingChanges.gameSettings,
+                inventory_edits: pendingChanges.inventoryEdits,
+                move_structures: pendingChanges.moveStructures,
+                duplicate_structures: pendingChanges.duplicateStructures,
+                delete_structures: pendingChanges.deleteStructures
+              })
+            })
+          : await fetch('/api/save/download');
+        if (!res.ok) throw new Error(await res.text() || 'Failed compiling/downloading save file');
 
         let filename = 'modified_save.sav';
         const disp = res.headers.get('content-disposition');
@@ -2285,11 +2579,43 @@
         document.body.removeChild(link);
         window.URL.revokeObjectURL(downloadUrl);
 
-        showNotification(`Downloaded ${filename} successfully!`);
+        if (hasPending) {
+          resetPendingChanges();
+        }
+        showNotification(`Compiled & downloaded ${filename} successfully!`);
       } catch (err) {
-        alert('Download error: ' + err.message);
+        alert('Save error: ' + err.message);
       } finally {
         btn.disabled = false;
+        hideLoading();
+      }
+    }
+
+    async function saveToGameFolder() {
+      const btn = document.getElementById('btn-save-to-game');
+      if (btn) btn.disabled = true;
+      showLoading('Compiling & saving directly to Satisfactory SaveGames...');
+      try {
+        const res = await fetch('/api/save/compile-to-game', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clear_fog: pendingChanges.clearFog,
+            game_settings: pendingChanges.gameSettings,
+            inventory_edits: pendingChanges.inventoryEdits,
+            move_structures: pendingChanges.moveStructures,
+            duplicate_structures: pendingChanges.duplicateStructures,
+            delete_structures: pendingChanges.deleteStructures
+          })
+        });
+        if (!res.ok) throw new Error(await res.text() || 'Failed saving to SaveGames folder');
+        const data = await res.json();
+        resetPendingChanges();
+        showNotification(`Saved directly to Satisfactory: ${data.filename}`);
+      } catch (err) {
+        alert('Save to Game error: ' + err.message);
+      } finally {
+        if (btn) btn.disabled = false;
         hideLoading();
       }
     }
@@ -2317,6 +2643,7 @@
       layerGroups.mercerSpheres.clearLayers();
       layerGroups.dropPods.clearLayers();
       layerGroups.deposits.clearLayers();
+      layerGroups.structures.clearLayers();
 
       // 2. Remove every node category group from the map
       for (const group of Object.values(layerGroups.nodesByCategory)) {
@@ -2346,6 +2673,7 @@
         document.getElementById('count-mercerspheres').innerText = '0';
         document.getElementById('count-droppods').innerText = '0';
         document.getElementById('count-deposits').innerText = '0';
+        document.getElementById('count-structures').innerText = '0';
 
         // 5. Reset sidebar filter list
         const listEl = document.getElementById('nodes-filter-list');
@@ -2407,6 +2735,7 @@
       document.getElementById('meta-pods').innerText = data.total_drop_pods;
       document.getElementById('count-droppods').innerText = data.total_drop_pods;
       document.getElementById('count-deposits').innerText = data.resource_deposits ? data.resource_deposits.length : 0;
+      document.getElementById('count-structures').innerText = data.player_structures ? data.player_structures.length : 0;
 
       const sloopsCount = data.total_somersloops || (data.somersloops ? data.somersloops.length : 0);
       const spheresCount = data.total_mercer_spheres || (data.mercer_spheres ? data.mercer_spheres.length : 0);
@@ -2517,6 +2846,10 @@
           layerGroups.dropPods.addLayer(marker);
         }
       }
+
+      // 4b. Index Inventories & Render Player Structures (machines, foundations, belts, pipes)
+      buildInventoryIndexAndRefreshUI();
+      renderPlayerStructures2D();
 
       // 5. Render Resource Nodes (grouped by resource name)
       const nodeCounts = {};
@@ -2640,6 +2973,24 @@
           map.addLayer(landmassLayer);
         }
         landmassLayer.bringToBack();
+      }
+      if (fogLayer) {
+        fogLayer.setBounds(activeLandmassBounds);
+        fogLayer.setUrl('/api/fog.png?t=' + Date.now());
+      }
+      const fogPctEl = document.getElementById('fog-revealed-pct');
+      if (fogPctEl) {
+        fogPctEl.innerText = data.has_fog_of_war
+          ? `${(data.fog_revealed_pct || 0).toFixed(1)}%`
+          : '100%';
+      }
+      const chkFog = document.getElementById('layer-fog');
+      if (chkFog && chkFog.checked && data.has_fog_of_war) {
+        if (!map.hasLayer(fogLayer)) {
+          map.addLayer(fogLayer);
+        }
+      } else if (map.hasLayer(fogLayer)) {
+        map.removeLayer(fogLayer);
       }
 
       // 8. Center and Fit map to World Bounds only when NOT preserving view
@@ -2826,6 +3177,129 @@
       if (window.sync3dTerrainVisibility) window.sync3dTerrainVisibility();
     }
 
+    function toggleFogLayer() {
+      const chk = document.getElementById('layer-fog');
+      if (!fogLayer) return;
+      if (chk && chk.checked) {
+        if (!map.hasLayer(fogLayer)) {
+          map.addLayer(fogLayer);
+        }
+      } else if (map.hasLayer(fogLayer)) {
+        map.removeLayer(fogLayer);
+      }
+    }
+
+    async function clearMapFog() {
+      pendingChanges.clearFog = true;
+      if (fogLayer && map.hasLayer(fogLayer)) {
+        map.removeLayer(fogLayer);
+      }
+      const fogPctEl = document.getElementById('fog-revealed-pct');
+      if (fogPctEl) fogPctEl.innerText = '100.0%';
+      if (worldData) worldData.fog_revealed_pct = 100.0;
+      updatePendingBadge();
+      showNotification("Map Fog cleared (staged). Click 'Save & Compile' in the header when ready.");
+    }
+
+    function openGameSettingsModal() {
+      const modal = document.getElementById('game-settings-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      const chk = document.getElementById('gs-creative-mode');
+      if (chk && worldData && worldData.game_settings) {
+        chk.checked = !!worldData.game_settings.is_creative_mode_enabled;
+      }
+      renderGameSettingsModal();
+    }
+
+    function closeGameSettingsModal() {
+      const modal = document.getElementById('game-settings-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function renderGameSettingsModal() {
+      const tbody = document.getElementById('gs-vars-body');
+      if (!tbody) return;
+      const vars = (worldData && worldData.game_settings && worldData.game_settings.variables) ? worldData.game_settings.variables : [];
+      const q = (document.getElementById('gs-search')?.value || '').trim().toLowerCase();
+
+      const rows = [];
+      for (let i = 0; i < vars.length; i++) {
+        const v = vars[i];
+        if (q && !v.property_name.toLowerCase().includes(q) && !v.actor_label.toLowerCase().includes(q)) continue;
+        let controlHtml = '';
+        if (v.value_type === 'bool') {
+          controlHtml = `<input type="checkbox" class="gs-var-input" data-idx="${i}" ${v.bool_val ? 'checked' : ''} />`;
+        } else if (v.value_type === 'int') {
+          controlHtml = `<input type="number" step="1" class="gs-var-input" data-idx="${i}" value="${v.int_val ?? 0}" style="width:110px; background:#0f172a; color:#fff; border:1px solid #334155; border-radius:4px; padding:3px 6px; font-size:12px; text-align:right;" />`;
+        } else if (v.value_type === 'float') {
+          controlHtml = `<input type="number" step="any" class="gs-var-input" data-idx="${i}" value="${v.float_val ?? 0}" style="width:110px; background:#0f172a; color:#fff; border:1px solid #334155; border-radius:4px; padding:3px 6px; font-size:12px; text-align:right;" />`;
+        }
+        rows.push(`
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+            <td style="padding: 7px 10px; color: #c4b5fd;">${escapeHtml(v.actor_label)}</td>
+            <td style="padding: 7px 10px; font-weight: 600; color: #f8fafc;">${escapeHtml(v.property_name)}</td>
+            <td style="padding: 7px 10px; color: #94a3b8;">${escapeHtml(v.value_type)}</td>
+            <td style="padding: 7px 10px; text-align: right;">${controlHtml}</td>
+          </tr>
+        `);
+      }
+      tbody.innerHTML = rows.length > 0
+        ? rows.join('')
+        : '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #64748b;">Load a save to inspect and edit game mode variables.</td></tr>';
+    }
+
+    async function applyGameSettings() {
+      if (!worldData || !worldData.game_settings) return;
+      const creative = document.getElementById('gs-creative-mode')?.checked;
+      const vars = worldData.game_settings.variables || [];
+      const updates = [];
+      for (const el of document.querySelectorAll('.gs-var-input')) {
+        const idx = parseInt(el.dataset.idx, 10);
+        const v = vars[idx];
+        if (!v) continue;
+        if (v.value_type === 'bool' && el.checked !== !!v.bool_val) {
+          updates.push({ actor_instance_name: v.actor_instance_name, property_name: v.property_name, value_type: v.value_type, bool_val: el.checked });
+        } else if (v.value_type === 'int') {
+          const nv = parseInt(el.value, 10);
+          if (!Number.isNaN(nv) && nv !== v.int_val) {
+            updates.push({ actor_instance_name: v.actor_instance_name, property_name: v.property_name, value_type: v.value_type, int_val: nv });
+          }
+        } else if (v.value_type === 'float') {
+          const nv = parseFloat(el.value);
+          if (!Number.isNaN(nv) && Math.abs(nv - (v.float_val || 0)) > 1e-6) {
+            updates.push({ actor_instance_name: v.actor_instance_name, property_name: v.property_name, value_type: v.value_type, float_val: nv });
+          }
+        }
+      }
+
+      if (!pendingChanges.gameSettings) {
+        pendingChanges.gameSettings = { is_creative_mode_enabled: creative, updates: [] };
+      } else {
+        pendingChanges.gameSettings.is_creative_mode_enabled = creative;
+      }
+      for (const upd of updates) {
+        const existingIdx = pendingChanges.gameSettings.updates.findIndex(
+          u => u.actor_instance_name === upd.actor_instance_name && u.property_name === upd.property_name
+        );
+        if (existingIdx >= 0) pendingChanges.gameSettings.updates[existingIdx] = upd;
+        else pendingChanges.gameSettings.updates.push(upd);
+      }
+
+      worldData.game_settings.is_creative_mode_enabled = !!creative;
+      for (const upd of updates) {
+        const v = vars.find(x => x.actor_instance_name === upd.actor_instance_name && x.property_name === upd.property_name);
+        if (v) {
+          if (upd.bool_val !== undefined) v.bool_val = upd.bool_val;
+          if (upd.int_val !== undefined) v.int_val = upd.int_val;
+          if (upd.float_val !== undefined) v.float_val = upd.float_val;
+        }
+      }
+      renderGameSettingsModal();
+      updatePendingBadge();
+      showNotification("Game settings staged. Click 'Save & Compile' in the header when ready.");
+    }
+
     function setLandmassOpacity(val) {
       const opacity = parseFloat(val) / 100.0;
       document.getElementById('landmass-opacity-val').innerText = `${val}%`;
@@ -2866,9 +3340,924 @@
         const chk = document.getElementById('layer-deposits');
         if (chk.checked) map.addLayer(layerGroups.deposits);
         else map.removeLayer(layerGroups.deposits);
+      } else if (type === 'structures') {
+        const chk = document.getElementById('layer-structures');
+        if (chk.checked) map.addLayer(layerGroups.structures);
+        else map.removeLayer(layerGroups.structures);
       }
       if (window.sync3dLayerVisibility) window.sync3dLayerVisibility();
     }
+
+    const KNOWN_STRUCT_CATS = new Set(['Production', 'Power', 'Logistics', 'Foundation', 'Transportation', 'Farming', 'Special']);
+    const selectedStructureNames = new Set();
+    window.selectedStructureNames = selectedStructureNames;
+    let boxSelectMode = false;
+    let dragMoveMode = false;
+    let worldSnapEnabled = false;
+    window.boxSelectMode = false;
+    window.dragMoveMode = false;
+    window.worldSnapEnabled = false;
+    let dragMoveStartLatLng = null;
+    let boxDragStart = null;
+    let boxDragRect = null;
+
+    function getActiveStructureFilter() {
+      const cats = new Set(Array.from(document.querySelectorAll('.struct-cat-chk:checked')).map(c => c.value));
+      const minEl = document.getElementById('struct-z-min');
+      const maxEl = document.getElementById('struct-z-max');
+      const zMinRaw = minEl ? parseFloat(minEl.value) : NaN;
+      const zMaxRaw = maxEl ? parseFloat(maxEl.value) : NaN;
+      return {
+        cats,
+        zMin: Number.isNaN(zMinRaw) ? -Infinity : zMinRaw,
+        zMax: Number.isNaN(zMaxRaw) ? Infinity : zMaxRaw
+      };
+    }
+
+    function getFilteredStructures() {
+      if (!worldData || !worldData.player_structures) return [];
+      const { cats, zMin, zMax } = getActiveStructureFilter();
+      const out = [];
+      for (const st of worldData.player_structures) {
+        const cat = st.category || 'Other';
+        if (KNOWN_STRUCT_CATS.has(cat) && !cats.has(cat)) continue;
+        const elevM = st.transform.translation[2] / 100.0;
+        if (elevM < zMin || elevM > zMax) continue;
+        out.push(st);
+      }
+      return out;
+    }
+
+    let inventoriesByOwner = new Map();
+
+    function buildInventoryIndexAndRefreshUI() {
+      inventoriesByOwner = new Map();
+      const invs = (worldData && worldData.inventories) ? worldData.inventories : [];
+      for (const inv of invs) {
+        if (!inventoriesByOwner.has(inv.owner_instance_name)) {
+          inventoriesByOwner.set(inv.owner_instance_name, []);
+        }
+        inventoriesByOwner.get(inv.owner_instance_name).push(inv);
+      }
+
+      const catalog = (worldData && worldData.item_catalog) ? worldData.item_catalog : [];
+      const uniqEl = document.getElementById('inv-unique-count');
+      if (uniqEl) uniqEl.innerText = catalog.length.toLocaleString();
+
+      const modSel = document.getElementById('inv-mod-filter');
+      if (modSel) {
+        const prev = modSel.value || 'All';
+        const mods = Array.from(new Set(catalog.map(it => it.mod_source))).sort();
+        modSel.innerHTML = '<option value="All">All Mods</option>' +
+          mods.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+        modSel.value = mods.includes(prev) ? prev : 'All';
+      }
+
+      const catSel = document.getElementById('inv-cat-filter');
+      if (catSel) {
+        const prev = catSel.value || 'All';
+        const cats = Array.from(new Set(catalog.map(it => it.category))).sort();
+        catSel.innerHTML = '<option value="All">All Categories</option>' +
+          cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+        catSel.value = cats.includes(prev) ? prev : 'All';
+      }
+
+      renderInventoryTable();
+      ensureKnownItemsLoaded();
+      populateInventoryOwnerSelect();
+    }
+
+    function openInventoryModal() {
+      const modal = document.getElementById('inventory-modal');
+      if (modal) {
+        modal.style.display = 'flex';
+        renderInventoryTable();
+      }
+    }
+
+    function closeInventoryModal() {
+      const modal = document.getElementById('inventory-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function renderInventoryTable() {
+      const tbody = document.getElementById('inv-table-body');
+      if (!tbody) return;
+      const catalog = (worldData && worldData.item_catalog) ? worldData.item_catalog : [];
+      const q = (document.getElementById('inv-search')?.value || '').trim().toLowerCase();
+      const ownerFilter = document.getElementById('inv-owner-filter')?.value || 'All';
+      const modFilter = document.getElementById('inv-mod-filter')?.value || 'All';
+      const catFilter = document.getElementById('inv-cat-filter')?.value || 'All';
+
+      const rows = [];
+      let totalItems = 0;
+      for (const it of catalog) {
+        if (modFilter !== 'All' && it.mod_source !== modFilter) continue;
+        if (catFilter !== 'All' && it.category !== catFilter) continue;
+        if (ownerFilter === 'Pioneer' && it.pioneer_count <= 0) continue;
+        if (ownerFilter === 'Storage' && it.storage_count <= 0) continue;
+        if (ownerFilter === 'Machine' && it.machine_count <= 0) continue;
+        if (q && !it.display_name.toLowerCase().includes(q) && !it.item_path.toLowerCase().includes(q)) continue;
+
+        totalItems += it.total_count;
+        const dynBadge = it.is_known ? '' : ' <span style="font-size:10px; background:rgba(250,204,21,0.16); color:#facc15; padding:1px 5px; border-radius:4px;">Dynamic</span>';
+        rows.push(`
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <td style="padding: 8px 14px; font-weight: 600; color: #f8fafc;">${escapeHtml(it.display_name)}${dynBadge}<div style="font-size:10px; color:#64748b; font-weight:400;">${escapeHtml(it.item_path.split('.').pop())}</div></td>
+            <td style="padding: 8px 10px; color: #7dd3fc;">${escapeHtml(it.mod_source)}</td>
+            <td style="padding: 8px 10px; color: #cbd5e1;">${escapeHtml(it.category)}</td>
+            <td style="padding: 8px 10px; text-align: right; color: #a7f3d0;">${it.pioneer_count > 0 ? it.pioneer_count.toLocaleString() : '–'}</td>
+            <td style="padding: 8px 10px; text-align: right; color: #fcd34d;">${it.storage_count > 0 ? it.storage_count.toLocaleString() : '–'}</td>
+            <td style="padding: 8px 10px; text-align: right; color: #fdba74;">${it.machine_count > 0 ? it.machine_count.toLocaleString() : '–'}</td>
+            <td style="padding: 8px 14px; text-align: right; font-weight: 700; color: #f8fafc;">${it.total_count.toLocaleString()}</td>
+          </tr>
+        `);
+      }
+
+      tbody.innerHTML = rows.length > 0
+        ? rows.join('')
+        : '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #64748b;">No matching items in loaded save.</td></tr>';
+
+      const sub = document.getElementById('inv-modal-subtitle');
+      if (sub) {
+        sub.innerText = `${rows.length.toLocaleString()} unique items shown (${totalItems.toLocaleString()} total units across pioneer, storage, and machines)`;
+      }
+    }
+
+    const availableItemsMap = new Map();
+    let knownItemsFetched = false;
+
+    async function ensureKnownItemsLoaded() {
+      if (!knownItemsFetched) {
+        try {
+          const resp = await fetch('/api/items/known');
+          if (resp.ok) {
+            const list = await resp.json();
+            for (const it of list) availableItemsMap.set(it.item_path, it);
+            knownItemsFetched = true;
+          }
+        } catch (e) { console.warn('Failed to fetch /api/items/known', e); }
+      }
+      if (worldData && worldData.item_catalog) {
+        for (const it of worldData.item_catalog) {
+          if (!availableItemsMap.has(it.item_path)) {
+            availableItemsMap.set(it.item_path, {
+              item_path: it.item_path,
+              display_name: it.display_name,
+              category: it.category,
+              mod_source: it.mod_source
+            });
+          }
+        }
+      }
+      refreshKnownItemsDatalist();
+    }
+
+    function refreshKnownItemsDatalist() {
+      const dl = document.getElementById('all-known-items-datalist');
+      if (!dl) return;
+      const sorted = Array.from(availableItemsMap.values()).sort((a, b) =>
+        a.display_name.localeCompare(b.display_name)
+      );
+      dl.innerHTML = sorted.map(it =>
+        `<option value="${escapeHtml(it.item_path)}">${escapeHtml(it.display_name)} [${escapeHtml(it.mod_source)}]</option>`
+      ).join('');
+    }
+
+    async function scanModFolder() {
+      const statusEl = document.getElementById('mods-scan-status');
+      const dirVal = document.getElementById('mods-dir-input')?.value || '';
+      if (statusEl) statusEl.innerText = 'Scanning...';
+      try {
+        const resp = await fetch('/api/mods/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mods_dir: dirVal.trim() || null })
+        });
+        if (!resp.ok) {
+          const msg = await resp.text();
+          if (statusEl) statusEl.innerText = msg;
+          return;
+        }
+        const data = await resp.json();
+        for (const it of data.items) {
+          availableItemsMap.set(it.item_path, it);
+        }
+        refreshKnownItemsDatalist();
+        if (statusEl) {
+          statusEl.innerText = `Found ${data.scanned_count} mod items in ${data.scanned_dir}`;
+        }
+      } catch (err) {
+        if (statusEl) statusEl.innerText = 'Scan error: ' + err;
+      }
+    }
+
+    function switchInventoryTab(tab) {
+      const catTab = document.getElementById('inv-tab-catalog');
+      const edTab = document.getElementById('inv-tab-editor');
+      const catBtn = document.getElementById('inv-tab-catalog-btn');
+      const edBtn = document.getElementById('inv-tab-editor-btn');
+      const isEditor = tab === 'editor';
+      if (catTab) catTab.style.display = isEditor ? 'none' : 'flex';
+      if (edTab) edTab.style.display = isEditor ? 'flex' : 'none';
+      if (catBtn) catBtn.style.background = isEditor ? '#1e293b' : '#0284c7';
+      if (edBtn) edBtn.style.background = isEditor ? '#0284c7' : '#1e293b';
+      if (isEditor) {
+        ensureKnownItemsLoaded();
+        populateInventoryOwnerSelect();
+      }
+    }
+
+    function openInventoryEditorForOwner(ownerInstanceName) {
+      openInventoryModal();
+      switchInventoryTab('editor');
+      populateInventoryOwnerSelect(ownerInstanceName);
+    }
+
+    function populateInventoryOwnerSelect(preselectOwner) {
+      const sel = document.getElementById('inv-edit-owner-select');
+      if (!sel) return;
+      const prev = preselectOwner || sel.value;
+      const q = (document.getElementById('inv-edit-owner-search')?.value || '').trim().toLowerCase();
+      const invs = (worldData && worldData.inventories) ? worldData.inventories : [];
+
+      const ordered = [...invs].sort((a, b) => {
+        const pri = t => t === 'Pioneer' ? 0 : (t === 'Storage' ? 1 : 2);
+        return pri(a.owner_type) - pri(b.owner_type) || a.owner_display_name.localeCompare(b.owner_display_name);
+      });
+
+      const opts = [];
+      for (const inv of ordered) {
+        const label = `[${inv.owner_type}] ${inv.owner_display_name} (${inv.slot_role} • ${inv.items.length}/${inv.total_slots} slots)`;
+        if (q && !label.toLowerCase().includes(q) && !inv.owner_instance_name.toLowerCase().includes(q)) continue;
+        opts.push(`<option value="${escapeHtml(inv.component_instance_name)}" data-owner="${escapeHtml(inv.owner_instance_name)}">${escapeHtml(label)}</option>`);
+      }
+      sel.innerHTML = opts.join('') || '<option value="">No matching inventories</option>';
+
+      if (preselectOwner) {
+        const match = ordered.find(i => i.owner_instance_name === preselectOwner || i.component_instance_name === preselectOwner);
+        if (match) sel.value = match.component_instance_name;
+      } else if (prev && Array.from(sel.options).some(o => o.value === prev)) {
+        sel.value = prev;
+      }
+      renderSelectedInventorySlots();
+    }
+
+    function renderSelectedInventorySlots() {
+      const tbody = document.getElementById('inv-editor-slots-body');
+      const sel = document.getElementById('inv-edit-owner-select');
+      if (!tbody || !sel) return;
+      const compName = sel.value;
+      const inv = (worldData && worldData.inventories || []).find(i => i.component_instance_name === compName);
+      if (!inv) {
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:16px; text-align:center; color:#64748b;">Select a Pioneer, Storage, or Machine inventory above.</td></tr>';
+        return;
+      }
+
+      const bySlot = new Map();
+      for (const it of inv.items) bySlot.set(it.slot_index, it);
+
+      const rows = [];
+      const total = Math.max(inv.total_slots || 0, inv.items.length);
+      for (let s = 0; s < total; s++) {
+        const it = bySlot.get(s);
+        if (it) {
+          rows.push(`
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+              <td style="padding: 6px 10px; color: #94a3b8;">#${s}</td>
+              <td style="padding: 6px 10px; font-weight: 600; color: #f8fafc;">${escapeHtml(it.display_name)}</td>
+              <td style="padding: 6px 10px; color: #7dd3fc;">${escapeHtml(it.mod_source)}</td>
+              <td style="padding: 6px 10px;"><input type="number" id="slot-cnt-${s}" value="${it.count}" min="0" style="width:82px; background:#0f172a; color:#fff; border:1px solid #334155; border-radius:4px; padding:3px 6px; font-size:12px;" /></td>
+              <td style="padding: 6px 10px; text-align: right;">
+                <button onclick="saveInventorySlotEdit(${s}, '${escapeHtml(it.item_path).replace(/'/g, "\\'")}', parseInt(document.getElementById('slot-cnt-${s}').value || '0', 10))" style="background:#0891b2; color:#fff; border:none; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:11px; margin-right:4px;">Save</button>
+                <button onclick="saveInventorySlotEdit(${s}, '', 0)" style="background:#dc2626; color:#fff; border:none; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:11px;">Remove</button>
+              </td>
+            </tr>
+          `);
+        } else {
+          rows.push(`
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); opacity: 0.65;">
+              <td style="padding: 5px 10px; color: #64748b;">#${s}</td>
+              <td colspan="4" style="padding: 5px 10px; color: #64748b; font-style: italic;">Empty slot</td>
+            </tr>
+          `);
+        }
+      }
+      tbody.innerHTML = rows.join('');
+    }
+
+    async function addItemToFirstEmptySlot() {
+      const sel = document.getElementById('inv-edit-owner-select');
+      const itemInput = document.getElementById('inv-add-item-input')?.value?.trim() || '';
+      const count = parseInt(document.getElementById('inv-add-item-count')?.value || '0', 10);
+      if (!sel || !sel.value) return;
+      if (!itemInput || count <= 0) {
+        alert('Select an item and enter a count > 0.');
+        return;
+      }
+      const inv = (worldData && worldData.inventories || []).find(i => i.component_instance_name === sel.value);
+      if (!inv) return;
+
+      const used = new Set(inv.items.map(it => it.slot_index));
+      let freeSlot = -1;
+      for (let s = 0; s < (inv.total_slots || 0); s++) {
+        if (!used.has(s)) { freeSlot = s; break; }
+      }
+      if (freeSlot < 0) {
+        alert('No empty slots available in this inventory.');
+        return;
+      }
+      await saveInventorySlotEdit(freeSlot, itemInput, count);
+    }
+
+    async function saveInventorySlotEdit(slotIndex, itemPath, count) {
+      const sel = document.getElementById('inv-edit-owner-select');
+      if (!sel || !sel.value) return;
+      const compName = sel.value;
+
+      let compEntry = pendingChanges.inventoryEdits.find(e => e.component_instance_name === compName);
+      if (!compEntry) {
+        compEntry = { component_instance_name: compName, edits: [] };
+        pendingChanges.inventoryEdits.push(compEntry);
+      }
+      const slotIdx = compEntry.edits.findIndex(e => e.slot_index === slotIndex);
+      const editObj = { slot_index: slotIndex, item_path: itemPath, count };
+      if (slotIdx >= 0) compEntry.edits[slotIdx] = editObj;
+      else compEntry.edits.push(editObj);
+
+      const inv = (worldData && worldData.inventories || []).find(i => i.component_instance_name === compName);
+      if (inv) {
+        inv.items = inv.items.filter(it => it.slot_index !== slotIndex);
+        if (itemPath && count > 0) {
+          const meta = availableItemsMap.get(itemPath) || {
+            item_path: itemPath,
+            display_name: itemPath.split('.').pop().replace(/^Desc_/, '').replace(/_C$/, ''),
+            category: 'Item',
+            mod_source: 'Modded'
+          };
+          inv.items.push({
+            slot_index: slotIndex,
+            item_path: itemPath,
+              display_name: meta.display_name,
+              category: meta.category,
+              mod_source: meta.mod_source,
+              count
+            });
+            inv.items.sort((a, b) => a.slot_index - b.slot_index);
+          }
+        }
+        renderSelectedInventorySlots();
+        renderPlayerStructures2D();
+        updatePendingBadge();
+        showNotification("Inventory edit staged. Click 'Save & Compile' in the header when ready.");
+    }
+
+    function renderPlayerStructures2D() {
+      layerGroups.structures.clearLayers();
+      const total = worldData && worldData.player_structures ? worldData.player_structures.length : 0;
+      const filtered = getFilteredStructures();
+      const countEl = document.getElementById('count-structures');
+      if (countEl) {
+        countEl.innerText = filtered.length === total
+          ? total.toLocaleString()
+          : `${filtered.length.toLocaleString()} / ${total.toLocaleString()}`;
+      }
+
+      for (const st of filtered) {
+        const [sx, sy, sz] = st.transform.translation;
+        const [qx, qy, qz, qw] = st.transform.rotation;
+        const yaw = Math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz));
+        const isSelected = selectedStructureNames.has(st.instance_name);
+        const color = isSelected ? '#22d3ee' : getStructureColor(st.category);
+        const name = st.display_name || st.type_path.split('.').pop();
+        const modTag = st.mod_source && st.mod_source !== 'Vanilla' ? ` [${st.mod_source}]` : '';
+        const elevM = (sz / 100.0).toFixed(1);
+        const [wM, lM] = st.footprint && st.footprint[0] > 0 ? st.footprint : [4.0, 4.0];
+
+        const ownerInvs = inventoriesByOwner.get(st.instance_name);
+        let invHtml = '';
+        if (ownerInvs && ownerInvs.length > 0) {
+          const lines = [];
+          for (const inv of ownerInvs) {
+            for (const item of inv.items.slice(0, 8)) {
+              lines.push(`<div>• ${escapeHtml(inv.slot_role)}: <b>${escapeHtml(item.display_name)}</b> × ${item.count.toLocaleString()}</div>`);
+            }
+            if (inv.items.length > 8) {
+              lines.push(`<div style="color:#94a3b8;">… +${inv.items.length - 8} more stacks</div>`);
+            }
+          }
+          const escapedOwner = escapeHtml(st.instance_name).replace(/'/g, "\\'");
+          invHtml = `<div style="margin-top:6px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.12); font-size:11px;">${lines.join('')}<button onclick="openInventoryEditorForOwner('${escapedOwner}')" style="margin-top:6px; width:100%; background:#0891b2; color:#fff; border:none; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:11px; font-weight:600;">Edit Inventory</button></div>`;
+        }
+
+        const escapedStructName = escapeHtml(st.instance_name).replace(/'/g, "\\'");
+        const popupHtml = `
+          <div class="tooltip-title" style="color: ${color};">${escapeHtml(name)}${escapeHtml(modTag)}</div>
+          <div>${escapeHtml(st.category || 'Building')} (${wM.toFixed(1)}m × ${lM.toFixed(1)}m × 1m)</div>
+          <div class="tooltip-coords">X: ${sx.toFixed(0)}, Y: ${sy.toFixed(0)}, Z: ${sz.toFixed(0)} (${elevM}m)</div>
+          <button onclick="toggleStructureSelection('${escapedStructName}')" style="margin-top:6px; width:100%; background:${isSelected ? '#475569' : '#f97316'}; color:#fff; border:none; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:11px; font-weight:600;">${isSelected ? 'Deselect' : 'Select for Move'}</button>
+          ${invHtml}
+        `;
+
+        const attachSelectClick = (layer) => {
+          layer.bindPopup(popupHtml);
+          layer.on('click', (e) => {
+            const ev = e.originalEvent;
+            const mod = ev && (ev.shiftKey || ev.ctrlKey || ev.metaKey);
+            if (!boxSelectMode && !mod) return;
+            L.DomEvent.stopPropagation(e);
+            layer.closePopup();
+            if (boxSelectMode || (ev && (ev.ctrlKey || ev.metaKey))) {
+              if (selectedStructureNames.has(st.instance_name)) {
+                selectedStructureNames.delete(st.instance_name);
+              } else {
+                selectedStructureNames.add(st.instance_name);
+              }
+            } else {
+              selectedStructureNames.add(st.instance_name);
+            }
+            updateBulkMoveBar();
+            renderPlayerStructures2D();
+          });
+        };
+
+        if (st.spline_points && st.spline_points.length >= 2) {
+          const latlngs = st.spline_points.map(p => ueToLatLng(p[0], p[1]));
+          const poly = L.polyline(latlngs, {
+            renderer: structuresCanvasRenderer,
+            color,
+            weight: isSelected ? 4 : 3,
+            opacity: 0.92
+          }).addTo(layerGroups.structures);
+          attachSelectClick(poly);
+        } else {
+          const hw = wM * 50.0;
+          const hl = lM * 50.0;
+          const cos = Math.cos(yaw);
+          const sin = Math.sin(yaw);
+          const corners = [
+            [-hl, -hw],
+            [ hl, -hw],
+            [ hl,  hw],
+            [-hl,  hw]
+          ].map(([lx, ly]) => ueToLatLng(sx + lx * cos - ly * sin, sy + lx * sin + ly * cos));
+          const poly = L.polygon(corners, {
+            renderer: structuresCanvasRenderer,
+            color,
+            weight: isSelected ? 2.5 : 1,
+            fillColor: color,
+            fillOpacity: isSelected ? 0.65 : (st.category === 'Foundation' ? 0.32 : 0.6)
+          }).addTo(layerGroups.structures);
+          attachSelectClick(poly);
+        }
+      }
+    }
+
+    function onStructureFilterChange() {
+      renderPlayerStructures2D();
+      if (window.sync3dLayerVisibility) window.sync3dLayerVisibility();
+    }
+
+    function resetStructureZFilter() {
+      const minEl = document.getElementById('struct-z-min');
+      const maxEl = document.getElementById('struct-z-max');
+      if (minEl) minEl.value = '';
+      if (maxEl) maxEl.value = '';
+      onStructureFilterChange();
+    }
+
+    function updateBulkMoveBar() {
+      const bar = document.getElementById('bulk-move-bar');
+      const cnt = document.getElementById('bulk-sel-count');
+      if (cnt) cnt.innerText = selectedStructureNames.size.toLocaleString();
+      if (bar) bar.style.display = selectedStructureNames.size > 0 ? 'flex' : 'none';
+    }
+
+    function toggleBoxSelectMode() {
+      boxSelectMode = !boxSelectMode;
+      window.boxSelectMode = boxSelectMode;
+      const btn = document.getElementById('btn-box-select');
+      if (btn) {
+        btn.innerText = boxSelectMode ? 'Box Select: ON' : 'Box Select (Shift+Drag)';
+        btn.style.borderColor = boxSelectMode ? '#22d3ee' : '';
+        btn.style.color = boxSelectMode ? '#22d3ee' : '';
+      }
+      if (boxSelectMode) {
+        dragMoveMode = false;
+        window.dragMoveMode = false;
+        const dBtn = document.getElementById('btn-drag-move-2d');
+        if (dBtn) {
+          dBtn.innerText = 'Drag Move: OFF';
+          dBtn.style.borderColor = '#475569';
+          dBtn.style.color = '#f8fafc';
+        }
+        map.dragging.disable();
+      } else {
+        map.dragging.enable();
+      }
+      if (window.sync3dEditControls) window.sync3dEditControls();
+    }
+
+    function toggleStructureSelection(instanceName) {
+      if (selectedStructureNames.has(instanceName)) {
+        selectedStructureNames.delete(instanceName);
+      } else {
+        selectedStructureNames.add(instanceName);
+      }
+      map.closePopup();
+      updateBulkMoveBar();
+      renderPlayerStructures2D();
+      if (window.rebuild3DStructures) window.rebuild3DStructures();
+      if (window.sync3dEditControls) window.sync3dEditControls();
+    }
+    window.toggleStructureSelection = toggleStructureSelection;
+
+    function toggleDragMoveMode() {
+      dragMoveMode = !dragMoveMode;
+      window.dragMoveMode = dragMoveMode;
+      const btn = document.getElementById('btn-drag-move-2d');
+      if (btn) {
+        btn.innerText = dragMoveMode ? 'Drag Move: ON' : 'Drag Move: OFF';
+        btn.style.borderColor = dragMoveMode ? '#22d3ee' : '#475569';
+        btn.style.color = dragMoveMode ? '#22d3ee' : '#f8fafc';
+      }
+      if (dragMoveMode) {
+        boxSelectMode = false;
+        window.boxSelectMode = false;
+        const bBtn = document.getElementById('btn-box-select');
+        if (bBtn) {
+          bBtn.innerText = 'Box Select (Shift+Drag)';
+          bBtn.style.borderColor = '';
+          bBtn.style.color = '';
+        }
+        map.dragging.disable();
+      } else if (!boxSelectMode) {
+        map.dragging.enable();
+      }
+      if (window.sync3dEditControls) window.sync3dEditControls();
+    }
+
+    function toggleWorldSnap() {
+      worldSnapEnabled = !worldSnapEnabled;
+      window.worldSnapEnabled = worldSnapEnabled;
+      const btn = document.getElementById('btn-world-snap');
+      if (btn) {
+        btn.innerText = worldSnapEnabled ? 'World Snap (8m): ON' : 'World Snap (8m): OFF';
+        btn.style.borderColor = worldSnapEnabled ? '#22c55e' : '#475569';
+        btn.style.color = worldSnapEnabled ? '#4ade80' : '#f8fafc';
+      }
+      const step = worldSnapEnabled ? '8' : '1';
+      const dxEl = document.getElementById('bulk-dx-m');
+      const dyEl = document.getElementById('bulk-dy-m');
+      if (dxEl) dxEl.step = step;
+      if (dyEl) dyEl.step = step;
+    }
+
+    function snapDeltaToWorldGrid(rawDxM, rawDyM) {
+      if (!worldSnapEnabled || selectedStructureNames.size === 0) {
+        return { dxM: parseFloat(rawDxM.toFixed(1)), dyM: parseFloat(rawDyM.toFixed(1)) };
+      }
+      const firstName = selectedStructureNames.values().next().value;
+      const anchor = (worldData && worldData.player_structures || []).find(s => s.instance_name === firstName);
+      if (anchor) {
+        const axM = anchor.transform.translation[0] / 100.0;
+        const ayM = anchor.transform.translation[1] / 100.0;
+        const snappedX = Math.round((axM + rawDxM) / 8.0) * 8.0;
+        const snappedY = Math.round((ayM + rawDyM) / 8.0) * 8.0;
+        return {
+          dxM: parseFloat((snappedX - axM).toFixed(2)),
+          dyM: parseFloat((snappedY - ayM).toFixed(2))
+        };
+      }
+      return {
+        dxM: Math.round(rawDxM / 8.0) * 8.0,
+        dyM: Math.round(rawDyM / 8.0) * 8.0
+      };
+    }
+    window.snapDeltaToWorldGrid = snapDeltaToWorldGrid;
+
+    function clearStructureSelection() {
+      selectedStructureNames.clear();
+      if (dragMoveMode) toggleDragMoveMode();
+      updateBulkMoveBar();
+      renderPlayerStructures2D();
+      if (window.rebuild3DStructures) window.rebuild3DStructures();
+      if (window.sync3dEditControls) window.sync3dEditControls();
+    }
+
+    async function applyBulkStructureMove() {
+      if (selectedStructureNames.size === 0) return;
+      const dx = (parseFloat(document.getElementById('bulk-dx-m').value) || 0) * 100.0;
+      const dy = (parseFloat(document.getElementById('bulk-dy-m').value) || 0) * 100.0;
+      const dz = (parseFloat(document.getElementById('bulk-dz-m').value) || 0) * 100.0;
+      if (dx === 0 && dy === 0 && dz === 0) {
+        alert('Enter a non-zero X, Y, or Z offset in meters.');
+        return;
+      }
+
+      pendingChanges.moveStructures.push({
+        instance_names: Array.from(selectedStructureNames),
+        dx, dy, dz
+      });
+
+      if (worldData && worldData.player_structures) {
+        for (const st of worldData.player_structures) {
+          if (selectedStructureNames.has(st.instance_name)) {
+            st.transform.translation[0] += dx;
+            st.transform.translation[1] += dy;
+            st.transform.translation[2] += dz;
+            if (st.spline_points) {
+              for (const pt of st.spline_points) {
+                pt[0] += dx; pt[1] += dy; pt[2] += dz;
+              }
+            }
+          }
+        }
+      }
+      document.getElementById('bulk-dx-m').value = '0';
+      document.getElementById('bulk-dy-m').value = '0';
+      document.getElementById('bulk-dz-m').value = '0';
+      renderPlayerStructures2D();
+      if (window.rebuild3DStructures) window.rebuild3DStructures();
+      updatePendingBadge();
+      showNotification(`Staged move for ${selectedStructureNames.size} structure(s). Click 'Save & Compile' in the header when ready.`);
+    }
+
+    let structureClipboard = null; // { names: string[] }
+    let previewDupSeq = 1;
+
+    function clonePreviewStructures(names, dx, dy, dz) {
+      if (!worldData || !worldData.player_structures) return [];
+      const nameSet = new Set(names);
+      const newNames = [];
+      const clones = [];
+      for (const st of worldData.player_structures) {
+        if (!nameSet.has(st.instance_name)) continue;
+        const copy = JSON.parse(JSON.stringify(st));
+        copy.instance_name = `${st.instance_name}_preview_${previewDupSeq++}`;
+        copy.transform.translation[0] += dx;
+        copy.transform.translation[1] += dy;
+        copy.transform.translation[2] += dz;
+        if (copy.spline_points) {
+          for (const pt of copy.spline_points) {
+            pt[0] += dx; pt[1] += dy; pt[2] += dz;
+          }
+        }
+        clones.push(copy);
+        newNames.push(copy.instance_name);
+      }
+      worldData.player_structures.push(...clones);
+      return newNames;
+    }
+
+    function getMoveDeltaOrDefault(defaultDxM = 8.0) {
+      let dx = (parseFloat(document.getElementById('bulk-dx-m').value) || 0) * 100.0;
+      let dy = (parseFloat(document.getElementById('bulk-dy-m').value) || 0) * 100.0;
+      let dz = (parseFloat(document.getElementById('bulk-dz-m').value) || 0) * 100.0;
+      if (dx === 0 && dy === 0 && dz === 0) {
+        dx = defaultDxM * 100.0;
+      }
+      return { dx, dy, dz };
+    }
+
+    function duplicateSelectedStructures() {
+      if (selectedStructureNames.size === 0) return;
+      const names = Array.from(selectedStructureNames).filter(n => !n.includes('_preview_'));
+      if (names.length === 0) {
+        alert('Select original structures from the save to duplicate.');
+        return;
+      }
+      const { dx, dy, dz } = getMoveDeltaOrDefault(8.0);
+      pendingChanges.duplicateStructures.push({ instance_names: names, dx, dy, dz });
+      clonePreviewStructures(names, dx, dy, dz);
+      renderPlayerStructures2D();
+      if (window.rebuild3DStructures) window.rebuild3DStructures();
+      updatePendingBadge();
+      showNotification(`Staged duplicate of ${names.length} structure(s). Click 'Save & Compile' when ready.`);
+    }
+
+    function copySelectedStructures() {
+      if (selectedStructureNames.size === 0) return;
+      const names = Array.from(selectedStructureNames).filter(n => !n.includes('_preview_'));
+      if (names.length === 0) {
+        alert('Select original structures from the save to copy.');
+        return;
+      }
+      structureClipboard = { names };
+      const pBtn = document.getElementById('btn-paste-structs');
+      if (pBtn) {
+        pBtn.style.display = 'inline-block';
+        pBtn.innerText = `Paste (${names.length})`;
+      }
+      showNotification(`Copied ${names.length} structure(s) to clipboard.`);
+    }
+
+    function pasteCopiedStructures() {
+      if (!structureClipboard || structureClipboard.names.length === 0) return;
+      const { dx, dy, dz } = getMoveDeltaOrDefault(8.0);
+      const names = structureClipboard.names;
+      pendingChanges.duplicateStructures.push({ instance_names: names, dx, dy, dz });
+      clonePreviewStructures(names, dx, dy, dz);
+      renderPlayerStructures2D();
+      if (window.rebuild3DStructures) window.rebuild3DStructures();
+      updatePendingBadge();
+      showNotification(`Staged paste of ${names.length} structure(s). Click 'Save & Compile' when ready.`);
+    }
+
+    function deleteSelectedStructures() {
+      if (selectedStructureNames.size === 0) return;
+      const names = Array.from(selectedStructureNames);
+      if (!confirm(`Delete ${names.length} selected structure(s) from the save?`)) return;
+      const realNames = names.filter(n => !n.includes('_preview_'));
+      if (realNames.length > 0) {
+        pendingChanges.deleteStructures.push(realNames);
+      }
+      if (worldData && worldData.player_structures) {
+        const delSet = new Set(names);
+        worldData.player_structures = worldData.player_structures.filter(s => !delSet.has(s.instance_name));
+      }
+      clearStructureSelection();
+      updatePendingBadge();
+      showNotification(`Staged deletion of ${names.length} structure(s). Click 'Save & Compile' when ready.`);
+    }
+
+    function b64ToBlob(b64) {
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return new Blob([arr], { type: 'application/octet-stream' });
+    }
+
+    async function saveSelectionAsBlueprint() {
+      if (selectedStructureNames.size === 0) return;
+      const names = Array.from(selectedStructureNames).filter(n => !n.includes('_preview_'));
+      if (names.length === 0) {
+        alert('Select placed buildings from the save to export a blueprint.');
+        return;
+      }
+      const bpName = prompt('Enter Blueprint name:', 'MapSelection');
+      if (!bpName || !bpName.trim()) return;
+
+      showLoading('Exporting selection as Satisfactory Blueprint (.sbp + .sbpcfg)...');
+      try {
+        const res = await fetch('/api/blueprint/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instance_names: names,
+            name: bpName.trim(),
+            description: 'Exported from Satisfactory RWG Interactive Map',
+            save_to_game: true
+          })
+        });
+        if (!res.ok) {
+          alert('Blueprint export failed: ' + (await res.text()));
+          return;
+        }
+        const data = await res.json();
+        if (data.saved_dir) {
+          showNotification(`Saved Blueprint "${data.filename}" (${data.exported_count} buildings) to ${data.saved_dir}`);
+        } else {
+          // Download both .sbp and .sbpcfg via browser
+          for (const [ext, b64] of [['sbp', data.sbp_b64], ['sbpcfg', data.sbpcfg_b64]]) {
+            const url = URL.createObjectURL(b64ToBlob(b64));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${data.filename}.${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          }
+          showNotification(`Downloaded ${data.filename}.sbp & .sbpcfg (${data.exported_count} buildings)`);
+        }
+      } catch (err) {
+        alert('Blueprint export error: ' + err.message);
+      } finally {
+        hideLoading();
+      }
+    }
+
+    window.applyBulkStructureMove = applyBulkStructureMove;
+    window.updateBulkMoveBar = updateBulkMoveBar;
+    window.renderPlayerStructures2D = renderPlayerStructures2D;
+    window.getFilteredStructures = getFilteredStructures;
+
+    map.on('mousedown', function(e) {
+      if (dragMoveMode && selectedStructureNames.size > 0 && !(e.originalEvent && e.originalEvent.shiftKey)) {
+        map.dragging.disable();
+        dragMoveStartLatLng = e.latlng;
+        return;
+      }
+      if (!boxSelectMode && !(e.originalEvent && e.originalEvent.shiftKey)) return;
+      map.dragging.disable();
+      boxDragStart = e.latlng;
+      if (boxDragRect) { map.removeLayer(boxDragRect); boxDragRect = null; }
+      boxDragRect = L.rectangle([boxDragStart, boxDragStart], {
+        color: '#22d3ee',
+        weight: 1.5,
+        dashArray: '4 4',
+        fillColor: '#22d3ee',
+        fillOpacity: 0.15,
+        interactive: false
+      }).addTo(map);
+    });
+
+    map.on('mousemove', function(e) {
+      if (dragMoveStartLatLng) {
+        const a = latLngToUe(dragMoveStartLatLng.lat, dragMoveStartLatLng.lng);
+        const b = latLngToUe(e.latlng.lat, e.latlng.lng);
+        const snapped = snapDeltaToWorldGrid((b.x - a.x) / 100.0, (b.y - a.y) / 100.0);
+        document.getElementById('bulk-dx-m').value = snapped.dxM;
+        document.getElementById('bulk-dy-m').value = snapped.dyM;
+        return;
+      }
+      if (!boxDragStart || !boxDragRect) return;
+      boxDragRect.setBounds(L.latLngBounds(boxDragStart, e.latlng));
+    });
+
+    function segmentIntersectsLatLngBounds(a, b, minLat, maxLat, minLng, maxLng) {
+      let t0 = 0.0, t1 = 1.0;
+      const dLng = b[1] - a[1];
+      const dLat = b[0] - a[0];
+      const tests = [
+        [-dLng, a[1] - minLng],
+        [ dLng, maxLng - a[1]],
+        [-dLat, a[0] - minLat],
+        [ dLat, maxLat - a[0]]
+      ];
+      for (const [p, q] of tests) {
+        if (Math.abs(p) < 1e-12) {
+          if (q < 0) return false;
+        } else {
+          const r = q / p;
+          if (p < 0) {
+            if (r > t1) return false;
+            if (r > t0) t0 = r;
+          } else {
+            if (r < t0) return false;
+            if (r < t1) t1 = r;
+          }
+        }
+      }
+      return t0 <= t1;
+    }
+
+    function structureIntersectsBounds(st, bounds) {
+      if (st.spline_points && st.spline_points.length >= 2) {
+        const minLat = bounds.getSouth(), maxLat = bounds.getNorth();
+        const minLng = bounds.getWest(), maxLng = bounds.getEast();
+        let prev = ueToLatLng(st.spline_points[0][0], st.spline_points[0][1]);
+        for (let i = 1; i < st.spline_points.length; i++) {
+          const curr = ueToLatLng(st.spline_points[i][0], st.spline_points[i][1]);
+          if (segmentIntersectsLatLngBounds(prev, curr, minLat, maxLat, minLng, maxLng)) {
+            return true;
+          }
+          prev = curr;
+        }
+        return false;
+      }
+      const [sx, sy] = st.transform.translation;
+      return bounds.contains(ueToLatLng(sx, sy));
+    }
+
+    map.on('mouseup', function(e) {
+      if (dragMoveStartLatLng) {
+        const a = latLngToUe(dragMoveStartLatLng.lat, dragMoveStartLatLng.lng);
+        const b = latLngToUe(e.latlng.lat, e.latlng.lng);
+        dragMoveStartLatLng = null;
+        const snapped = snapDeltaToWorldGrid((b.x - a.x) / 100.0, (b.y - a.y) / 100.0);
+        if (Math.abs(snapped.dxM) >= 0.05 || Math.abs(snapped.dyM) >= 0.05) {
+          document.getElementById('bulk-dx-m').value = snapped.dxM;
+          document.getElementById('bulk-dy-m').value = snapped.dyM;
+          applyBulkStructureMove();
+        }
+        return;
+      }
+      if (!boxDragStart) return;
+      const startPt = boxDragStart;
+      const bounds = L.latLngBounds(startPt, e.latlng);
+      if (boxDragRect) { map.removeLayer(boxDragRect); boxDragRect = null; }
+      boxDragStart = null;
+      if (!boxSelectMode) map.dragging.enable();
+
+      // Tiny click-sized drag: let individual layer click handler toggle selection
+      if (Math.abs(startPt.lat - e.latlng.lat) < 1e-6 && Math.abs(startPt.lng - e.latlng.lng) < 1e-6) {
+        return;
+      }
+
+      if (!(e.originalEvent && (e.originalEvent.ctrlKey || e.originalEvent.metaKey))) {
+        selectedStructureNames.clear();
+      }
+      for (const st of getFilteredStructures()) {
+        if (structureIntersectsBounds(st, bounds)) {
+          selectedStructureNames.add(st.instance_name);
+        }
+      }
+      updateBulkMoveBar();
+      renderPlayerStructures2D();
+      if (window.rebuild3DStructures) window.rebuild3DStructures();
+    });
 
     function toggleCategoryLayer(category) {
       const safeId = 'filter-' + category.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -3106,12 +4495,15 @@
       mercerSpheres: null,
       dropPods: null,
       deposits: null,
+      structures: null,
       nodesByCategory: {}
     };
 
     // Interactive pickables for hover tooltips & double-click focus
     let pickableInstancedMeshes = [];
     let cameraFlyAnim = null; // { startPos, endPos, startTarget, endTarget, startTime, duration }
+    let selectionGizmoGroup = null;
+    let gizmoPickables = [];
 
     function ensure3dInitialized() {
       if (renderer) return;
@@ -3141,6 +4533,16 @@
       controls.maxDistance = 22000;
       controls.maxPolarAngle = Math.PI * 0.485; // Keep camera above horizon
 
+      window.sync3dEditControls = function() {
+        if (!controls) return;
+        const inEdit = !!(window.boxSelectMode || (window.dragMoveMode && window.selectedStructureNames && window.selectedStructureNames.size > 0));
+        controls.mouseButtons.LEFT = inEdit ? null : THREE.MOUSE.PAN;
+        if (renderer && renderer.domElement) {
+          renderer.domElement.style.cursor = inEdit ? 'crosshair' : 'grab';
+        }
+      };
+      window.sync3dEditControls();
+
       // Lighting
       const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.95);
       hemiLight.position.set(0, 5000, 0);
@@ -3164,19 +4566,275 @@
 
       raycaster = new THREE.Raycaster();
 
+      // 3D Selection Translation Gizmo (Red = X, Green = Y, Blue = Z, Cyan Center = XY)
+      selectionGizmoGroup = new THREE.Group();
+      selectionGizmoGroup.visible = false;
+      selectionGizmoGroup.renderOrder = 999;
+      gizmoPickables = [];
+
+      const makeGizmoAxis = (axisName, colorHex, dirVec) => {
+        const g = new THREE.Group();
+        const mat = new THREE.MeshBasicMaterial({ color: colorHex, depthTest: false, transparent: true, opacity: 0.92 });
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 10), mat);
+        shaft.position.y = 0.75;
+        shaft.renderOrder = 999;
+        shaft.userData.gizmoAxis = axisName;
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.45, 12), mat);
+        cone.position.y = 1.65;
+        cone.renderOrder = 999;
+        cone.userData.gizmoAxis = axisName;
+        g.add(shaft);
+        g.add(cone);
+        g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dirVec.clone().normalize());
+        selectionGizmoGroup.add(g);
+        gizmoPickables.push(shaft, cone);
+      };
+      makeGizmoAxis('x', 0xef4444, new THREE.Vector3(1, 0, 0));
+      makeGizmoAxis('y', 0x22c55e, new THREE.Vector3(0, 0, 1));
+      makeGizmoAxis('z', 0x3b82f6, new THREE.Vector3(0, 1, 0));
+
+      const centerMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, depthTest: false, transparent: true, opacity: 0.95 });
+      const centerCube = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.32), centerMat);
+      centerCube.renderOrder = 999;
+      centerCube.userData.gizmoAxis = 'xy';
+      selectionGizmoGroup.add(centerCube);
+      gizmoPickables.push(centerCube);
+      scene.add(selectionGizmoGroup);
+
+      window.updateSelectionGizmo = function() {
+        if (!selectionGizmoGroup) return;
+        const sel = window.selectedStructureNames;
+        if (!sel || sel.size === 0) {
+          selectionGizmoGroup.visible = false;
+          return;
+        }
+        const allStructs = (window.worldData && window.worldData.player_structures) || [];
+        let sumX = 0, sumY = 0, sumZ = 0, cnt = 0;
+        for (const st of allStructs) {
+          if (sel.has(st.instance_name)) {
+            sumX += st.transform.translation[0];
+            sumY += st.transform.translation[1];
+            sumZ += st.transform.translation[2];
+            cnt++;
+          }
+        }
+        if (cnt === 0) {
+          selectionGizmoGroup.visible = false;
+          return;
+        }
+        selectionGizmoGroup.position.set(
+          (sumX / cnt) / 100.0,
+          ((sumZ / cnt) / 100.0) * verticalScale + 1.0,
+          (sumY / cnt) / 100.0
+        );
+        selectionGizmoGroup.visible = true;
+      };
+      window.updateSelectionGizmo();
+
       // Mouse move: update coordinates HUD & 3D hover tooltip
       renderer.domElement.addEventListener('pointermove', on3dPointerMove);
       // Double click: smoothly fly and zoom into specific area or node
       renderer.domElement.addEventListener('dblclick', on3dDoubleClick);
 
-      // Single click on 3D terrain for Pioneer relocation
+      // Single click / Edit-mode Drag Move / Box Select in 3D
       let pointerDownPos = { x: 0, y: 0 };
+      let box3dStart = null;
+      let drag3dStartWorld = null;
+      let drag3dPlane = null;
+      let gizmoDrag = null;
+      const box3dEl = document.getElementById('box-select-3d');
+
+      function set3dPointerRay(ev) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointerNDC.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+        pointerNDC.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointerNDC, camera);
+      }
+
       renderer.domElement.addEventListener('pointerdown', (e) => {
         pointerDownPos.x = e.clientX;
         pointerDownPos.y = e.clientY;
+        if (window.currentViewMode !== '3d' || e.button !== 0) return;
+
+        // 0. Check 3D Translation Gizmo handles first
+        if (selectionGizmoGroup && selectionGizmoGroup.visible && !e.shiftKey) {
+          set3dPointerRay(e);
+          const gHits = raycaster.intersectObjects(gizmoPickables, false);
+          if (gHits.length > 0 && gHits[0].object.userData.gizmoAxis) {
+            const axis = gHits[0].object.userData.gizmoAxis;
+            controls.enabled = false;
+            const gPos = selectionGizmoGroup.position.clone();
+            let plane;
+            if (axis === 'z') {
+              const camDir = new THREE.Vector3(camera.position.x - gPos.x, 0, camera.position.z - gPos.z);
+              if (camDir.lengthSq() < 1e-4) camDir.set(0, 0, 1);
+              camDir.normalize();
+              plane = new THREE.Plane().setFromNormalAndCoplanarPoint(camDir, gPos);
+            } else {
+              plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -gPos.y);
+            }
+            const startHit = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(plane, startHit)) {
+              gizmoDrag = { axis, plane, startGizmoPos: gPos, startHit };
+            } else {
+              controls.enabled = true;
+            }
+            return;
+          }
+        }
+
+        if (window.boxSelectMode || e.shiftKey) {
+          controls.enabled = false;
+          box3dStart = { x: e.clientX, y: e.clientY };
+          if (box3dEl) {
+            box3dEl.style.left = e.clientX + 'px';
+            box3dEl.style.top = e.clientY + 'px';
+            box3dEl.style.width = '0px';
+            box3dEl.style.height = '0px';
+            box3dEl.style.display = 'block';
+          }
+          return;
+        }
+
+        if (window.dragMoveMode && window.selectedStructureNames && window.selectedStructureNames.size > 0) {
+          controls.enabled = false;
+          let sumY = 0, cnt = 0;
+          const allStructs = (window.worldData && window.worldData.player_structures) || [];
+          for (const st of allStructs) {
+            if (window.selectedStructureNames.has(st.instance_name)) {
+              sumY += (st.transform.translation[2] / 100.0) * verticalScale + 0.5;
+              cnt++;
+            }
+          }
+          const avgY = cnt > 0 ? (sumY / cnt) : 0;
+          drag3dPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -avgY);
+          set3dPointerRay(e);
+          const hitPt = new THREE.Vector3();
+          if (raycaster.ray.intersectPlane(drag3dPlane, hitPt)) {
+            drag3dStartWorld = hitPt;
+          }
+        }
       });
+
+      renderer.domElement.addEventListener('pointermove', (e) => {
+        if (window.currentViewMode !== '3d') return;
+        if (gizmoDrag) {
+          set3dPointerRay(e);
+          const hitPt = new THREE.Vector3();
+          if (raycaster.ray.intersectPlane(gizmoDrag.plane, hitPt)) {
+            let rawDx = 0, rawDy = 0, rawDz = 0;
+            if (gizmoDrag.axis === 'x' || gizmoDrag.axis === 'xy') rawDx = hitPt.x - gizmoDrag.startHit.x;
+            if (gizmoDrag.axis === 'y' || gizmoDrag.axis === 'xy') rawDy = hitPt.z - gizmoDrag.startHit.z;
+            if (gizmoDrag.axis === 'z') rawDz = (hitPt.y - gizmoDrag.startHit.y) / verticalScale;
+            const snapped = window.snapDeltaToWorldGrid(rawDx, rawDy);
+            const dxM = (gizmoDrag.axis === 'z') ? 0 : snapped.dxM;
+            const dyM = (gizmoDrag.axis === 'z') ? 0 : snapped.dyM;
+            const dzM = window.worldSnapEnabled ? Math.round(rawDz) : parseFloat(rawDz.toFixed(1));
+            document.getElementById('bulk-dx-m').value = dxM;
+            document.getElementById('bulk-dy-m').value = dyM;
+            document.getElementById('bulk-dz-m').value = dzM;
+            selectionGizmoGroup.position.set(
+              gizmoDrag.startGizmoPos.x + dxM,
+              gizmoDrag.startGizmoPos.y + dzM * verticalScale,
+              gizmoDrag.startGizmoPos.z + dyM
+            );
+          }
+          return;
+        }
+        if (box3dStart && box3dEl) {
+          const x = Math.min(box3dStart.x, e.clientX);
+          const y = Math.min(box3dStart.y, e.clientY);
+          const w = Math.abs(e.clientX - box3dStart.x);
+          const h = Math.abs(e.clientY - box3dStart.y);
+          box3dEl.style.left = x + 'px';
+          box3dEl.style.top = y + 'px';
+          box3dEl.style.width = w + 'px';
+          box3dEl.style.height = h + 'px';
+          return;
+        }
+        if (drag3dStartWorld && drag3dPlane) {
+          set3dPointerRay(e);
+          const hitPt = new THREE.Vector3();
+          if (raycaster.ray.intersectPlane(drag3dPlane, hitPt)) {
+            const snapped = window.snapDeltaToWorldGrid(hitPt.x - drag3dStartWorld.x, hitPt.z - drag3dStartWorld.z);
+            document.getElementById('bulk-dx-m').value = snapped.dxM;
+            document.getElementById('bulk-dy-m').value = snapped.dyM;
+          }
+        }
+      });
+
       renderer.domElement.addEventListener('pointerup', (e) => {
         if (window.currentViewMode !== '3d') return;
+
+        if (gizmoDrag) {
+          const gDrag = gizmoDrag;
+          gizmoDrag = null;
+          controls.enabled = true;
+          const dxM = parseFloat(document.getElementById('bulk-dx-m').value) || 0;
+          const dyM = parseFloat(document.getElementById('bulk-dy-m').value) || 0;
+          const dzM = parseFloat(document.getElementById('bulk-dz-m').value) || 0;
+          if (Math.abs(dxM) >= 0.05 || Math.abs(dyM) >= 0.05 || Math.abs(dzM) >= 0.05) {
+            window.applyBulkStructureMove();
+          } else {
+            selectionGizmoGroup.position.copy(gDrag.startGizmoPos);
+          }
+          return;
+        }
+
+        if (box3dStart) {
+          const start = box3dStart;
+          box3dStart = null;
+          if (box3dEl) box3dEl.style.display = 'none';
+          controls.enabled = true;
+          const dragDist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+          if (dragDist > 5) {
+            const minX = Math.min(start.x, e.clientX);
+            const maxX = Math.max(start.x, e.clientX);
+            const minY = Math.min(start.y, e.clientY);
+            const maxY = Math.max(start.y, e.clientY);
+            const rect = renderer.domElement.getBoundingClientRect();
+            if (!e.ctrlKey && !e.metaKey) {
+              window.selectedStructureNames.clear();
+            }
+            const proj = new THREE.Vector3();
+            const list = window.getFilteredStructures ? window.getFilteredStructures() : [];
+            for (const st of list) {
+              const [sx, sy, sz] = st.transform.translation;
+              proj.set(sx / 100.0, (sz / 100.0) * verticalScale + 0.5, sy / 100.0).project(camera);
+              if (proj.z < -1 || proj.z > 1) continue;
+              const px = rect.left + (proj.x * 0.5 + 0.5) * rect.width;
+              const py = rect.top + (-proj.y * 0.5 + 0.5) * rect.height;
+              if (px >= minX && px <= maxX && py >= minY && py <= maxY) {
+                window.selectedStructureNames.add(st.instance_name);
+              }
+            }
+            window.updateBulkMoveBar();
+            window.renderPlayerStructures2D();
+            window.rebuild3DStructures();
+            window.sync3dEditControls();
+            return;
+          }
+        }
+
+        if (drag3dStartWorld && drag3dPlane) {
+          set3dPointerRay(e);
+          const hitPt = new THREE.Vector3();
+          const hasHit = raycaster.ray.intersectPlane(drag3dPlane, hitPt);
+          const startW = drag3dStartWorld;
+          drag3dStartWorld = null;
+          drag3dPlane = null;
+          controls.enabled = true;
+          if (hasHit) {
+            const snapped = window.snapDeltaToWorldGrid(hitPt.x - startW.x, hitPt.z - startW.z);
+            if (Math.abs(snapped.dxM) >= 0.05 || Math.abs(snapped.dyM) >= 0.05) {
+              document.getElementById('bulk-dx-m').value = snapped.dxM;
+              document.getElementById('bulk-dy-m').value = snapped.dyM;
+              window.applyBulkStructureMove();
+              return;
+            }
+          }
+        }
+
         const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
         if (dist > 5) return; // User was dragging the orbit camera
 
@@ -3192,7 +4850,11 @@
           const hit = nodeHits[0];
           const item = hit.object.userData.items ? hit.object.userData.items[hit.instanceId] : null;
           if (item && item.instance_name) {
-            window.startNodeRelocation(item.instance_name);
+            if (hit.object.userData.isStructureMesh) {
+              window.toggleStructureSelection(item.instance_name);
+            } else {
+              window.startNodeRelocation(item.instance_name);
+            }
             return;
           }
         }
@@ -3414,6 +5076,7 @@
       groups3d.mercerSpheres = null;
       groups3d.dropPods = null;
       groups3d.deposits = null;
+      groups3d.structures = null;
       groups3d.nodesByCategory = {};
 
       if (beaconSatsGroup && teleportBeaconGroup) {
@@ -3500,6 +5163,11 @@
         camera.position.copy(prevPos);
         controls.target.copy(prevTarget);
         controls.update();
+      if (selectionGizmoGroup && selectionGizmoGroup.visible) {
+        const d = camera.position.distanceTo(selectionGizmoGroup.position);
+        const s = Math.max(4, d * 0.075);
+        selectionGizmoGroup.scale.set(s, s, s);
+      }
       } else {
         window.reset3dCamera(false);
       }
@@ -3774,6 +5442,129 @@
         if (groups3d.dropPods) groups3d.root.add(groups3d.dropPods);
       }
 
+      // 4b. Player Structures (1m-tall oriented footprint blocks via InstancedMesh)
+      window.rebuild3DStructures = function() {
+        if (!groups3d.root) return;
+        if (groups3d.structures) {
+          groups3d.root.remove(groups3d.structures);
+          pickableInstancedMeshes = pickableInstancedMeshes.filter(m => !m.userData.isStructureMesh);
+          groups3d.structures = null;
+        }
+        const structuresList = window.worldData && window.worldData.player_structures ? window.worldData.player_structures : data.player_structures;
+        if (!structuresList || structuresList.length === 0) return;
+
+        const structGroup = new THREE.Group();
+        const byStructCat = {};
+        for (const st of structuresList) {
+          const cat = st.category || 'Other';
+          if (!byStructCat[cat]) byStructCat[cat] = [];
+          byStructCat[cat].push(st);
+        }
+        const unitBoxGeom = new THREE.BoxGeometry(1, 1, 1);
+        const structDummy = new THREE.Object3D();
+        const selColor = new THREE.Color('#22d3ee');
+        structGroup.userData.structMeshes = [];
+        structGroup.userData.structLines = [];
+
+        for (const [cat, list] of Object.entries(byStructCat)) {
+          const sColor = getStructureColor(cat);
+          const baseColor = new THREE.Color(sColor);
+          const boxList = list.filter(st => !st.spline_points || st.spline_points.length < 2);
+          const splineList = list.filter(st => st.spline_points && st.spline_points.length >= 2);
+
+          if (boxList.length > 0) {
+            const mat = new THREE.MeshStandardMaterial({
+              color: 0xffffff,
+              roughness: 0.55,
+              metalness: 0.15,
+              transparent: cat === 'Foundation',
+              opacity: cat === 'Foundation' ? 0.72 : 0.92
+            });
+            const instMesh = new THREE.InstancedMesh(unitBoxGeom, mat, boxList.length);
+            const items = new Array(boxList.length);
+
+            for (let i = 0; i < boxList.length; i++) {
+              const st = boxList[i];
+              const [sx, sy, sz] = st.transform.translation;
+              const [qx, qy, qz, qw] = st.transform.rotation;
+              const yaw = Math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz));
+              const [wM, lM] = st.footprint && st.footprint[0] > 0 ? st.footprint : [4.0, 4.0];
+              const mx = sx / 100.0;
+              const mz = sy / 100.0;
+              const elevM = sz / 100.0;
+
+              structDummy.position.set(mx, elevM * verticalScale + 0.5, mz);
+              structDummy.rotation.set(0, -yaw, 0);
+              structDummy.scale.set(lM, 1.0, wM);
+              structDummy.updateMatrix();
+              instMesh.setMatrixAt(i, structDummy.matrix);
+
+              const isSel = window.selectedStructureNames && window.selectedStructureNames.has(st.instance_name);
+              instMesh.setColorAt(i, isSel ? selColor : baseColor);
+
+              const name = st.display_name || st.type_path.split('.').pop();
+              const modTag = st.mod_source && st.mod_source !== 'Vanilla' ? ` [${st.mod_source}]` : '';
+              items[i] = {
+                instance_name: st.instance_name,
+                ux: sx, uy: sy, uz: sz, yaw, wM, lM,
+                tooltipHtml: `
+                  <div class="tooltip-title" style="color: ${isSel ? '#22d3ee' : sColor};">${escapeHtml(name)}${escapeHtml(modTag)}${isSel ? ' (Selected)' : ''}</div>
+                  <div>${escapeHtml(cat)} (${wM.toFixed(1)}m × ${lM.toFixed(1)}m × 1m)</div>
+                  <div class="tooltip-coords">X: ${sx.toFixed(0)}, Y: ${sy.toFixed(0)}, Z: ${sz.toFixed(0)} (${elevM.toFixed(1)}m)</div>
+                `
+              };
+            }
+
+            instMesh.instanceMatrix.needsUpdate = true;
+            if (instMesh.instanceColor) instMesh.instanceColor.needsUpdate = true;
+            instMesh.userData.category = cat;
+            instMesh.userData.isStructureMesh = true;
+            instMesh.userData.items = items;
+            structGroup.add(instMesh);
+            structGroup.userData.structMeshes.push(instMesh);
+            pickableInstancedMeshes.push(instMesh);
+          }
+
+          if (splineList.length > 0) {
+            let segCount = 0;
+            for (const st of splineList) segCount += st.spline_points.length - 1;
+            const positions = new Float32Array(segCount * 6);
+            const rawCoords = new Float32Array(segCount * 6);
+            let idx = 0;
+            for (const st of splineList) {
+              const pts = st.spline_points;
+              for (let k = 0; k < pts.length - 1; k++) {
+                const a = pts[k];
+                const b = pts[k + 1];
+                rawCoords[idx]     = a[0] / 100.0; rawCoords[idx + 1] = a[2] / 100.0; rawCoords[idx + 2] = a[1] / 100.0;
+                rawCoords[idx + 3] = b[0] / 100.0; rawCoords[idx + 4] = b[2] / 100.0; rawCoords[idx + 5] = b[1] / 100.0;
+                positions[idx]     = rawCoords[idx];
+                positions[idx + 1] = rawCoords[idx + 1] * verticalScale + 0.5;
+                positions[idx + 2] = rawCoords[idx + 2];
+                positions[idx + 3] = rawCoords[idx + 3];
+                positions[idx + 4] = rawCoords[idx + 4] * verticalScale + 0.5;
+                positions[idx + 5] = rawCoords[idx + 5];
+                idx += 6;
+              }
+            }
+            const lineGeom = new THREE.BufferGeometry();
+            lineGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(sColor) });
+            const lineSegs = new THREE.LineSegments(lineGeom, lineMat);
+            lineSegs.userData.category = cat;
+            lineSegs.userData.rawCoords = rawCoords;
+            structGroup.add(lineSegs);
+            structGroup.userData.structLines.push(lineSegs);
+          }
+        }
+
+        groups3d.structures = structGroup;
+        groups3d.root.add(groups3d.structures);
+        if (window.update3dLayerVisibility) window.update3dLayerVisibility();
+        if (window.updateSelectionGizmo) window.updateSelectionGizmo();
+      };
+      window.rebuild3DStructures();
+
       // 5. Resource Nodes by Category
       groups3d.nodesByCategory = {};
       if (data.resource_nodes) {
@@ -3864,6 +5655,17 @@
       setVis(groups3d.mercerSpheres, 'layer-mercerspheres');
       setVis(groups3d.dropPods, 'layer-droppods');
       setVis(groups3d.deposits, 'layer-deposits');
+      setVis(groups3d.structures, 'layer-structures');
+      if (groups3d.structures && groups3d.structures.userData.structMeshes) {
+        const activeCats = new Set(Array.from(document.querySelectorAll('.struct-cat-chk:checked')).map(c => c.value));
+        const isCatVis = (cat) => activeCats.has(cat) || (!KNOWN_STRUCT_CATS.has(cat));
+        for (const m of groups3d.structures.userData.structMeshes) {
+          m.visible = isCatVis(m.userData.category || 'Other');
+        }
+        for (const l of (groups3d.structures.userData.structLines || [])) {
+          l.visible = isCatVis(l.userData.category || 'Other');
+        }
+      }
 
       for (const [catName, grp] of Object.entries(groups3d.nodesByCategory)) {
         const safeId = 'filter-' + catName.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -3895,6 +5697,30 @@
       updateGroupPositionsForScale(groups3d.mercerSpheres);
       updateGroupPositionsForScale(groups3d.dropPods);
       updateGroupPositionsForScale(groups3d.deposits);
+      if (groups3d.structures && groups3d.structures.userData.structMeshes) {
+        const d = new THREE.Object3D();
+        for (const m of groups3d.structures.userData.structMeshes) {
+          const items = m.userData.items;
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            d.position.set(it.ux / 100.0, (it.uz / 100.0) * verticalScale + 0.5, it.uy / 100.0);
+            d.rotation.set(0, -it.yaw, 0);
+            d.scale.set(it.lM, 1.0, it.wM);
+            d.updateMatrix();
+            m.setMatrixAt(i, d.matrix);
+          }
+          m.instanceMatrix.needsUpdate = true;
+        }
+        for (const l of (groups3d.structures.userData.structLines || [])) {
+          const posAttr = l.geometry.attributes.position;
+          const raw = l.userData.rawCoords;
+          const arr = posAttr.array;
+          for (let i = 1; i < arr.length; i += 3) {
+            arr[i] = raw[i] * verticalScale + 0.5;
+          }
+          posAttr.needsUpdate = true;
+        }
+      }
       for (const grp of Object.values(groups3d.nodesByCategory)) {
         updateGroupPositionsForScale(grp);
       }
@@ -3908,6 +5734,30 @@
       updateGroupPositionsForScale(groups3d.mercerSpheres);
       updateGroupPositionsForScale(groups3d.dropPods);
       updateGroupPositionsForScale(groups3d.deposits);
+      if (groups3d.structures && groups3d.structures.userData.structMeshes) {
+        const d = new THREE.Object3D();
+        for (const m of groups3d.structures.userData.structMeshes) {
+          const items = m.userData.items;
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i];
+            d.position.set(it.ux / 100.0, (it.uz / 100.0) * verticalScale + 0.5, it.uy / 100.0);
+            d.rotation.set(0, -it.yaw, 0);
+            d.scale.set(it.lM, 1.0, it.wM);
+            d.updateMatrix();
+            m.setMatrixAt(i, d.matrix);
+          }
+          m.instanceMatrix.needsUpdate = true;
+        }
+        for (const l of (groups3d.structures.userData.structLines || [])) {
+          const posAttr = l.geometry.attributes.position;
+          const raw = l.userData.rawCoords;
+          const arr = posAttr.array;
+          for (let i = 1; i < arr.length; i += 3) {
+            arr[i] = raw[i] * verticalScale + 0.5;
+          }
+          posAttr.needsUpdate = true;
+        }
+      }
       for (const grp of Object.values(groups3d.nodesByCategory)) {
         updateGroupPositionsForScale(grp);
       }
@@ -3938,6 +5788,11 @@
         controls.target.copy(targetEnd);
         camera.position.copy(posEnd);
         controls.update();
+      if (selectionGizmoGroup && selectionGizmoGroup.visible) {
+        const d = camera.position.distanceTo(selectionGizmoGroup.position);
+        const s = Math.max(4, d * 0.075);
+        selectionGizmoGroup.scale.set(s, s, s);
+      }
       }
     };
 
@@ -4072,6 +5927,11 @@
         controls.target.set(targetX, targetY, targetZ);
         camera.position.set(targetX, targetY + dist * 0.72, targetZ + dist * 0.68);
         controls.update();
+      if (selectionGizmoGroup && selectionGizmoGroup.visible) {
+        const d = camera.position.distanceTo(selectionGizmoGroup.position);
+        const s = Math.max(4, d * 0.075);
+        selectionGizmoGroup.scale.set(s, s, s);
+      }
       } else {
         btn3d.classList.remove('active');
         btn2d.classList.add('active');
@@ -4110,6 +5970,11 @@
       }
 
       controls.update();
+      if (selectionGizmoGroup && selectionGizmoGroup.visible) {
+        const d = camera.position.distanceTo(selectionGizmoGroup.position);
+        const s = Math.max(4, d * 0.075);
+        selectionGizmoGroup.scale.set(s, s, s);
+      }
       if (teleportBeaconGroup && teleportBeaconGroup.visible) {
         teleportBeaconGroup.children[2].rotation.y += 0.03;
       }

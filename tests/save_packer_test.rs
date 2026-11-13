@@ -192,3 +192,333 @@ fn test_move_fracking_core_and_satellites() {
     assert!((repacked_slope_core.transform.rotation[3] - slope_rot[3]).abs() < 1e-4);
 }
 
+#[test]
+fn test_edit_inventory_slots_roundtrip() {
+    let sample_path = Path::new("release/samples/SF Plus Industrial Evolution_201026-222159.sav");
+    if !sample_path.exists() {
+        eprintln!("skipping test_edit_inventory_slots_roundtrip: sample not found");
+        return;
+    }
+
+    let raw_bytes = fs::read(sample_path).expect("Failed to read sample save");
+    let summary = parse_save_bytes(&raw_bytes).expect("Initial parse failed");
+
+    // Pick an inventory with at least 1 empty slot and 1 occupied slot, or any non-empty inventory
+    let target_inv = summary
+        .inventories
+        .iter()
+        .find(|i| !i.items.is_empty() && i.total_slots > i.items.len())
+        .or_else(|| summary.inventories.iter().find(|i| !i.items.is_empty()))
+        .expect("Expected at least one non-empty inventory in sample save");
+
+    let used: std::collections::HashSet<usize> = target_inv.items.iter().map(|it| it.slot_index).collect();
+    let free_slot = (0..target_inv.total_slots).find(|s| !used.contains(s));
+    let test_slot = free_slot.unwrap_or(target_inv.items[0].slot_index);
+    let test_item = "/Game/FactoryGame/Resource/Parts/IronPlate/Desc_IronPlate.Desc_IronPlate_C";
+
+    let edited_sav = sat_rwg_map::modify_inventory_slots(
+        &raw_bytes,
+        &target_inv.component_instance_name,
+        &[sat_rwg_map::InventorySlotEdit {
+            slot_index: test_slot,
+            item_path: test_item.to_string(),
+            count: 777,
+        }],
+    )
+    .expect("modify_inventory_slots failed");
+
+    let reparsed = parse_save_bytes(&edited_sav).expect("Edited save must re-parse cleanly");
+    let edited_inv = reparsed
+        .inventories
+        .iter()
+        .find(|i| i.component_instance_name == target_inv.component_instance_name)
+        .expect("Target inventory missing after edit");
+
+    let edited_stack = edited_inv
+        .items
+        .iter()
+        .find(|it| it.slot_index == test_slot)
+        .expect("Edited slot missing after roundtrip");
+
+    assert_eq!(edited_stack.item_path, test_item);
+    assert_eq!(edited_stack.count, 777);
+}
+
+#[test]
+fn test_clear_map_fog_roundtrip() {
+    let sample_path = Path::new("release/samples/SF Plus Industrial Evolution_201026-222159.sav");
+    if !sample_path.exists() {
+        eprintln!("skipping test_clear_map_fog_roundtrip: sample not found");
+        return;
+    }
+
+    let raw_bytes = fs::read(sample_path).expect("Failed to read sample save");
+    let initial = parse_save_bytes(&raw_bytes).expect("Initial parse failed");
+    assert!(initial.has_fog_of_war, "Expected fog of war in sample save");
+    assert!(initial.fog_of_war_png.is_some(), "Expected encoded fog PNG");
+    assert!(initial.fog_revealed_pct < 99.0, "Expected partially fogged map initially");
+
+    let cleared_sav = sat_rwg_map::clear_map_fog(&raw_bytes).expect("clear_map_fog failed");
+    let reparsed = parse_save_bytes(&cleared_sav).expect("Fog-cleared save must re-parse cleanly");
+    assert!(reparsed.has_fog_of_war);
+    assert!(
+        (reparsed.fog_revealed_pct - 100.0).abs() < 1e-3,
+        "Expected 100% revealed after clear_map_fog, got {}",
+        reparsed.fog_revealed_pct
+    );
+}
+
+#[test]
+fn test_modify_game_settings_roundtrip() {
+    let sample_path = Path::new("release/samples/SF Plus Industrial Evolution_201026-222159.sav");
+    if !sample_path.exists() {
+        eprintln!("skipping test_modify_game_settings_roundtrip: sample not found");
+        return;
+    }
+
+    let raw_bytes = fs::read(sample_path).expect("Failed to read sample save");
+    let initial = parse_save_bytes(&raw_bytes).expect("Initial parse failed");
+    assert!(!initial.game_settings.variables.is_empty(), "Expected game rule variables");
+
+    let target_creative = !initial.game_settings.is_creative_mode_enabled;
+    let bool_var = initial
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.value_type == "bool")
+        .expect("Expected at least one bool rule variable");
+    let int_var = initial
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.value_type == "int")
+        .expect("Expected at least one int rule variable");
+
+    let new_bool = !bool_var.bool_val.unwrap();
+    let new_int = int_var.int_val.unwrap() + 1;
+
+    let updated_sav = sat_rwg_map::modify_game_settings(
+        &raw_bytes,
+        Some(target_creative),
+        &[
+            sat_rwg_map::GameRuleUpdate {
+                actor_instance_name: bool_var.actor_instance_name.clone(),
+                property_name: bool_var.property_name.clone(),
+                value_type: None,
+                bool_val: Some(new_bool),
+                int_val: None,
+                float_val: None,
+            },
+            sat_rwg_map::GameRuleUpdate {
+                actor_instance_name: int_var.actor_instance_name.clone(),
+                property_name: int_var.property_name.clone(),
+                value_type: None,
+                bool_val: None,
+                int_val: Some(new_int),
+                float_val: None,
+            },
+        ],
+    )
+    .expect("modify_game_settings failed");
+
+    let reparsed = parse_save_bytes(&updated_sav).expect("Updated save must re-parse cleanly");
+    assert_eq!(reparsed.game_settings.is_creative_mode_enabled, target_creative);
+
+    let reparsed_bool = reparsed
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.actor_instance_name == bool_var.actor_instance_name && v.property_name == bool_var.property_name)
+        .unwrap();
+    assert_eq!(reparsed_bool.bool_val, Some(new_bool));
+
+    let reparsed_int = reparsed
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.actor_instance_name == int_var.actor_instance_name && v.property_name == int_var.property_name)
+        .unwrap();
+    assert_eq!(reparsed_int.int_val, Some(new_int));
+}
+
+#[test]
+fn test_satisfactory_12_min_settings_insertion_roundtrip() {
+    let sample_path = std::path::PathBuf::from("samples/Min Settings_131126-204314.sav");
+    if !sample_path.exists() {
+        return;
+    }
+
+    let raw_bytes = std::fs::read(&sample_path).expect("Failed to read Min Settings sample");
+    let initial = parse_save_bytes(&raw_bytes).expect("Initial parse failed");
+
+    let no_power = initial
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.property_name == "mCheatNoPower")
+        .expect("mCheatNoPower preset must be present");
+    let starting_tier = initial
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.property_name == "mStartingTier")
+        .expect("mStartingTier preset must be present");
+    let energy_mult = initial
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.property_name == "mEnergyCostMultiplier")
+        .expect("mEnergyCostMultiplier preset must be present");
+
+    assert_eq!(no_power.bool_val, Some(false));
+    assert_eq!(starting_tier.int_val, Some(0));
+    assert!((energy_mult.float_val.unwrap() - 0.25).abs() < 1e-4);
+
+    let updated_sav = sat_rwg_map::modify_game_settings(
+        &raw_bytes,
+        Some(true),
+        &[
+            sat_rwg_map::GameRuleUpdate {
+                actor_instance_name: no_power.actor_instance_name.clone(),
+                property_name: "mCheatNoPower".to_string(),
+                value_type: Some("bool".to_string()),
+                bool_val: Some(true),
+                int_val: None,
+                float_val: None,
+            },
+            sat_rwg_map::GameRuleUpdate {
+                actor_instance_name: starting_tier.actor_instance_name.clone(),
+                property_name: "mStartingTier".to_string(),
+                value_type: Some("int".to_string()),
+                bool_val: None,
+                int_val: Some(5),
+                float_val: None,
+            },
+            sat_rwg_map::GameRuleUpdate {
+                actor_instance_name: energy_mult.actor_instance_name.clone(),
+                property_name: "mEnergyCostMultiplier".to_string(),
+                value_type: Some("float".to_string()),
+                bool_val: None,
+                int_val: None,
+                float_val: Some(2.5),
+                },
+        ],
+    )
+    .expect("modify_game_settings insertion failed");
+
+    let reparsed = parse_save_bytes(&updated_sav).expect("Re-parse after insertion failed");
+    assert!(reparsed.game_settings.is_creative_mode_enabled);
+
+    let r_no_power = reparsed
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.property_name == "mCheatNoPower")
+        .unwrap();
+    assert_eq!(r_no_power.bool_val, Some(true));
+
+    let r_tier = reparsed
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.property_name == "mStartingTier")
+        .unwrap();
+    assert_eq!(r_tier.int_val, Some(5));
+
+    let r_energy = reparsed
+        .game_settings
+        .variables
+        .iter()
+        .find(|v| v.property_name == "mEnergyCostMultiplier")
+        .unwrap();
+    assert!((r_energy.float_val.unwrap() - 2.5).abs() < 1e-4);
+}
+
+#[test]
+fn test_duplicate_delete_and_blueprint_export_roundtrip() {
+    let sample_candidates = [
+        "release/samples/Random World Plus_071126-124858.sav",
+        "release/samples/Draconia Plus_221026-210844.sav",
+        "release/samples/Random 2.0 SF+ Dev_261026-194354.sav",
+        "Referenc_specs/RP Test_autosave_1.sav",
+        "release/samples/Random 0.2.0_121126-231201.sav",
+    ];
+    let (raw_bytes, initial) = sample_candidates
+        .iter()
+        .map(Path::new)
+        .filter(|p| p.exists())
+        .find_map(|p| {
+            let bytes = fs::read(p).ok()?;
+            let parsed = parse_save_bytes(&bytes).ok()?;
+            if parsed.player_structures.is_empty() {
+                None
+            } else {
+                Some((bytes, parsed))
+            }
+        })
+        .expect("At least one sample save with player structures must exist");
+
+    let mut targets: Vec<String> = Vec::new();
+    let initial_count = initial.player_structures.len();
+
+    for s in &initial.player_structures {
+        if !s.is_lightweight
+            && targets.iter().filter(|t| !t.contains("::lw::")).count() < 2
+            && !s.type_path.contains("Subsystem")
+        {
+            targets.push(s.instance_name.clone());
+        } else if s.is_lightweight && targets.iter().filter(|t| t.contains("::lw::")).count() < 2 {
+            targets.push(s.instance_name.clone());
+        }
+        if targets.len() >= 4 {
+            break;
+        }
+    }
+
+    assert!(
+        !targets.is_empty(),
+        "Sample save should contain at least one player structure or lightweight buildable"
+    );
+
+    // 1. Duplicate selected structures
+    let (dup_sav, dup_count) = sat_rwg_map::duplicate_structures_in_save(
+        &raw_bytes,
+        &targets,
+        800.0,
+        0.0,
+        0.0,
+    )
+    .expect("duplicate_structures_in_save failed");
+    assert_eq!(dup_count, targets.len());
+
+    let after_dup = parse_save_bytes(&dup_sav).expect("Re-parse after duplicate failed");
+    assert_eq!(
+        after_dup.player_structures.len(),
+        initial_count + dup_count,
+        "Total structures should increase by duplicated count"
+    );
+
+    // 2. Delete the original target structures from the duplicated save
+    let (del_sav, del_count) = sat_rwg_map::delete_structures_in_save(&dup_sav, &targets)
+        .expect("delete_structures_in_save failed");
+    assert_eq!(del_count, targets.len());
+
+    let after_del = parse_save_bytes(&del_sav).expect("Re-parse after delete failed");
+    assert_eq!(
+        after_del.player_structures.len(),
+        initial_count,
+        "Total structures should return to initial count after deleting targets"
+    );
+
+    // 3. Export selection as blueprint (.sbp + .sbpcfg)
+    let (sbp_bytes, sbpcfg_bytes, bp_count) =
+        sat_rwg_map::export_selection_as_blueprint(&raw_bytes, &targets, "Test Blueprint")
+            .expect("export_selection_as_blueprint failed");
+    assert_eq!(bp_count, targets.len());
+    assert_eq!(&sbp_bytes[0..4], &2u32.to_le_bytes());
+    assert_eq!(&sbpcfg_bytes[0..4], &6u32.to_le_bytes());
+    assert!(sbp_bytes.len() > 64);
+    assert!(sbpcfg_bytes.len() > 24);
+}
+
+

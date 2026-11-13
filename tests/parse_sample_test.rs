@@ -162,5 +162,33 @@ fn test_ficsit_farming_and_mod_recognition() {
     );
 }
 
+#[test]
+fn test_player_structures_and_lightweight_buildables() {
+    let sample_path = Path::new("release/samples/SF Plus Industrial Evolution_201026-222159.sav");
+    if !sample_path.exists() {
+        eprintln!("skipping test_player_structures_and_lightweight_buildables: sample not found");
+        return;
+    }
+
+    let summary = parse_save_file(sample_path).expect("Failed to parse SF Plus Industrial Evolution save");
+    let total = summary.player_structures.len();
+    let lw_count = summary.player_structures.iter().filter(|s| s.is_lightweight).count();
+    let spline_count = summary.player_structures.iter().filter(|s| s.spline_points.is_some()).count();
+
+    println!(
+        "Total player_structures: {}, lightweight: {}, splines: {}, inventories: {}, unique items: {}",
+        total,
+        lw_count,
+        spline_count,
+        summary.inventories.len(),
+        summary.item_catalog.len()
+    );
+    assert!(total > 1000, "Expected > 1000 player structures, got {}", total);
+    assert!(lw_count > 1000, "Expected > 1000 lightweight buildables (foundations/walls), got {}", lw_count);
+    assert!(spline_count > 100, "Expected > 100 splines (belts/pipes), got {}", spline_count);
+    assert!(!summary.inventories.is_empty(), "Expected non-empty inventories in save");
+    assert!(!summary.item_catalog.is_empty(), "Expected non-empty dynamic item_catalog in save");
+}
+
 
 
