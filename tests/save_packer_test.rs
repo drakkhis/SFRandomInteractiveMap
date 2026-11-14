@@ -519,6 +519,26 @@ fn test_duplicate_delete_and_blueprint_export_roundtrip() {
     assert_eq!(&sbpcfg_bytes[0..4], &6u32.to_le_bytes());
     assert!(sbp_bytes.len() > 64);
     assert!(sbpcfg_bytes.len() > 24);
+
+    // Verify .sbp payload structure: [total_m4][hdr_len][hdr_cnt][headers...][obj_len][obj_cnt]([body_len][body]...)
+    let chunk_pos = sbp_bytes
+        .windows(4)
+        .position(|w| w == [0xC1, 0x83, 0x2A, 0x9E])
+        .expect("Compressed chunk tag missing in .sbp");
+    let bp_decomp = decompress_save_chunks(&sbp_bytes, chunk_pos)
+        .expect("Failed to decompress .sbp chunks")
+        .uncompressed_data;
+    let total_m4 = u32::from_le_bytes(bp_decomp[0..4].try_into().unwrap()) as usize;
+    assert_eq!(total_m4 + 4, bp_decomp.len());
+    let hdr_len = u32::from_le_bytes(bp_decomp[4..8].try_into().unwrap()) as usize;
+    let obj_off = 8 + hdr_len;
+    let obj_cnt = u32::from_le_bytes(bp_decomp[obj_off + 4..obj_off + 8].try_into().unwrap()) as usize;
+    let mut pos = obj_off + 8;
+    for _ in 0..obj_cnt {
+        let bsz = u32::from_le_bytes(bp_decomp[pos..pos + 4].try_into().unwrap()) as usize;
+        pos += 4 + bsz;
+    }
+    assert_eq!(pos, bp_decomp.len(), ".sbp object bodies must walk cleanly to EOF without .sav 8-byte prefix");
 }
 
 

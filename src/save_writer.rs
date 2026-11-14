@@ -1227,6 +1227,13 @@ pub fn export_selection_as_blueprint(
     let dim_y = (((max_y - min_y) / 800.0).ceil() as u32).max(4);
     let dim_z = (((max_z - min_z) / 800.0).ceil() as u32).max(4);
 
+    // Clean 18-byte empty component body: u32(18) + u8(0) + FString("None") + u64(0)
+    let mut empty_comp_entry = Vec::with_capacity(22);
+    empty_comp_entry.extend_from_slice(&18u32.to_le_bytes());
+    empty_comp_entry.push(0u8);
+    empty_comp_entry.extend_from_slice(&encode_ue_fstring("None"));
+    empty_comp_entry.extend_from_slice(&0u64.to_le_bytes());
+
     let mut hdr_stream = Vec::new();
     let mut obj_stream = Vec::new();
     let mut total_obj_count = 0u32;
@@ -1245,16 +1252,67 @@ pub fn export_selection_as_blueprint(
                 -cy,
                 -cz,
             )?;
+            let bp_obj_slice = |range: (usize, usize)| -> &[u8] {
+                if header.save_version >= 41 {
+                    let obj_sz = LittleEndian::read_u32(&buf[range.0 + 8..range.0 + 12]) as usize;
+                    &buf[range.0 + 8..range.0 + 12 + obj_sz]
+                } else {
+                    &buf[range.0..range.1]
+                }
+            };
             hdr_stream.extend_from_slice(&bp_hdr);
-            obj_stream.extend_from_slice(&buf[actor_sp.body_range.0..actor_sp.body_range.1]);
+            obj_stream.extend_from_slice(bp_obj_slice(actor_sp.body_range));
             total_obj_count += 1;
             exported_actors += 1;
 
             for comp_sp in lvl.object_spans.iter().filter(|c| {
                 !c.is_actor && c.parent_actor_name.as_deref() == Some(actor_sp.instance_name.as_str())
             }) {
-                hdr_stream.extend_from_slice(&buf[comp_sp.header_range.0..comp_sp.header_range.1]);
-                obj_stream.extend_from_slice(&buf[comp_sp.body_range.0..comp_sp.body_range.1]);
+                let comp_hdr = &buf[comp_sp.header_range.0..comp_sp.header_range.1];
+                let comp_class = read_fstring_at(comp_hdr, 4)
+                    .map(|(s, _)| s)
+                    .unwrap_or_default();
+                let comp_obj = bp_obj_slice(comp_sp.body_range);
+
+                let should_clear_conn = if comp_class.contains("FGPipeConnection") {
+                    // Never carry stale mPipeNetworkID / mFluidBox / external pipe refs into blueprints
+                    true
+                } else if comp_class.contains("FGFactoryConnection")
+                    || comp_class.contains("FGPowerConnection")
+                    || comp_class.contains("FGRailroadTrackConnection")
+                {
+                    // Clear if any referenced PersistentLevel.<ActorName> is outside the blueprint
+                    let body_str = String::from_utf8_lossy(comp_obj);
+                    body_str.match_indices("PersistentLevel.").any(|(idx, _)| {
+                        let rest = &body_str[idx..];
+                        let end = rest.find('\0').unwrap_or(rest.len());
+                        let path = &rest[..end];
+                        let prefix_start = body_str[..idx]
+                            .rfind(|c: char| c == '\0' || c.is_control())
+                            .map(|p| p + 1)
+                            .unwrap_or(0);
+                        let full_ref = format!("{}{}", &body_str[prefix_start..idx], path);
+                        let actor_ref = if let Some(dot1) = full_ref.find("PersistentLevel.") {
+                            let after_pl = &full_ref[dot1 + "PersistentLevel.".len()..];
+                            match after_pl.find('.') {
+                                Some(dot2) => &full_ref[..dot1 + "PersistentLevel.".len() + dot2],
+                                None => full_ref.as_str(),
+                            }
+                        } else {
+                            full_ref.as_str()
+                        };
+                        !actor_targets.contains(actor_ref)
+                    })
+                } else {
+                    false
+                };
+
+                hdr_stream.extend_from_slice(comp_hdr);
+                if should_clear_conn {
+                    obj_stream.extend_from_slice(&empty_comp_entry);
+                } else {
+                    obj_stream.extend_from_slice(comp_obj);
+                }
                 total_obj_count += 1;
             }
         }
