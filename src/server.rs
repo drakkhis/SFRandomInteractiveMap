@@ -155,10 +155,7 @@ pub async fn upload_save_handler(
         format!("upload_{}.sav", ts)
     });
 
-    let safe_filename = Path::new(&raw_name)
-        .file_name()
-        .map(|f| f.to_string_lossy().to_string())
-        .unwrap_or_else(|| "uploaded_save.sav".to_string());
+    let safe_filename = crate::platform::sanitize_upload_filename(&raw_name, "uploaded_save.sav");
 
     let _ = fs::create_dir_all(&state.samples_dir);
     let target_path = state.samples_dir.join(&safe_filename);
@@ -219,10 +216,10 @@ pub async fn load_save_handler(
     State(state): State<AppState>,
     Query(params): Query<LoadQuery>,
 ) -> Result<Json<WorldSnapshot>, (StatusCode, String)> {
-    let safe_filename = Path::new(&params.filename)
-        .file_name()
-        .map(|f| f.to_string_lossy().to_string())
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "Invalid filename".to_string()))?;
+    let safe_filename = crate::platform::sanitize_upload_filename(&params.filename, "");
+    if safe_filename.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Invalid filename".to_string()));
+    }
 
     let target_path = state.samples_dir.join(&safe_filename);
     if !target_path.exists() {
@@ -791,10 +788,21 @@ pub struct ScanModsResponse {
 pub async fn scan_mods_handler(
     Json(payload): Json<ScanModsRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let dir_str = payload.mods_dir.unwrap_or_else(|| {
-        r"C:\Program Files (x86)\Steam\steamapps\common\Satisfactory\FactoryGame\Mods".to_string()
-    });
-    let dir_path = PathBuf::from(&dir_str);
+    let requested_dir = payload
+        .mods_dir
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let dir_path = match requested_dir {
+        Some(dir) => PathBuf::from(dir),
+        None => crate::platform::find_satisfactory_mods_dir().ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                "Could not auto-detect Satisfactory/FactoryGame/Mods. Please enter your Mods folder path or set SATISFACTORY_MODS_DIR."
+                    .to_string(),
+            )
+        })?,
+    };
+    let dir_str = dir_path.to_string_lossy().to_string();
     let items = tokio::task::spawn_blocking(move || crate::mod_scanner::scan_mods_folder(&dir_path))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Join error: {}", e)))?
@@ -1076,62 +1084,6 @@ pub async fn compile_save_handler(
     Ok((headers, compiled_bytes))
 }
 
-fn find_satisfactory_save_dir() -> Result<PathBuf, String> {
-    let local_app_data = std::env::var("LOCALAPPDATA")
-        .map_err(|_| "LOCALAPPDATA environment variable not found".to_string())?;
-    let save_games_root = PathBuf::from(local_app_data)
-        .join("FactoryGame")
-        .join("Saved")
-        .join("SaveGames");
-    if !save_games_root.exists() {
-        return Err(format!(
-            "Satisfactory SaveGames folder not found at {:?}",
-            save_games_root
-        ));
-    }
-
-    let mut best_dir: Option<(SystemTime, PathBuf)> = None;
-    let mut first_profile_dir: Option<PathBuf> = None;
-
-    if let Ok(entries) = fs::read_dir(&save_games_root) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if !p.is_dir() {
-                continue;
-            }
-            let dir_name = p
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
-            if dir_name.eq_ignore_ascii_case("server") {
-                continue;
-            }
-            if first_profile_dir.is_none() {
-                first_profile_dir = Some(p.clone());
-            }
-            if let Ok(sub_entries) = fs::read_dir(&p) {
-                for sub in sub_entries.flatten() {
-                    let sp = sub.path();
-                    if sp.extension().and_then(|e| e.to_str()) == Some("sav") {
-                        if let Ok(meta) = sp.metadata() {
-                            if let Ok(mtime) = meta.modified() {
-                                if best_dir.as_ref().map_or(true, |(t, _)| mtime > *t) {
-                                    best_dir = Some((mtime, p.clone()));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    best_dir
-        .map(|(_, d)| d)
-        .or(first_profile_dir)
-        .ok_or_else(|| format!("No profile save folder found inside {:?}", save_games_root))
-}
-
 #[derive(serde::Serialize)]
 pub struct SaveToGameResponse {
     pub saved_path: String,
@@ -1145,7 +1097,8 @@ pub async fn compile_to_game_handler(
     Json(payload): Json<CompileSaveRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     let (new_filename, compiled_bytes) = compile_save_bytes(&state, payload).await?;
-    let target_dir = find_satisfactory_save_dir().map_err(|e| (StatusCode::NOT_FOUND, e))?;
+    let target_dir = crate::platform::find_satisfactory_save_profile_dir()
+        .map_err(|e| (StatusCode::NOT_FOUND, e))?;
     let dest_path = target_dir.join(&new_filename);
     fs::write(&dest_path, &compiled_bytes).map_err(|e| {
         (
@@ -1238,13 +1191,7 @@ pub async fn export_blueprint_handler(
                 .map(|(_, s)| s.session_name.clone())
                 .unwrap_or_else(|| "Default".to_string())
         };
-        if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-            let bp_dir = PathBuf::from(local_app_data)
-                .join("FactoryGame")
-                .join("Saved")
-                .join("SaveGames")
-                .join("blueprints")
-                .join(&session_name);
+        if let Ok(bp_dir) = crate::platform::find_satisfactory_blueprints_dir(&session_name) {
             if fs::create_dir_all(&bp_dir).is_ok() {
                 let sbp_path = bp_dir.join(format!("{}.sbp", bp_name));
                 let cfg_path = bp_dir.join(format!("{}.sbpcfg", bp_name));
@@ -1264,6 +1211,30 @@ pub async fn export_blueprint_handler(
     }))
 }
 
+#[derive(serde::Serialize)]
+pub struct PlatformInfo {
+    pub os: &'static str,
+    pub samples_dir: String,
+    pub detected_save_dir: Option<String>,
+    pub detected_mods_dir: Option<String>,
+}
+
+/// Handler for GET /api/platform — returns host OS and auto-detected Satisfactory paths.
+pub async fn platform_info_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let detected_save_dir = crate::platform::find_satisfactory_save_profile_dir()
+        .ok()
+        .map(|p| p.to_string_lossy().to_string());
+    let detected_mods_dir = crate::platform::find_satisfactory_mods_dir()
+        .map(|p| p.to_string_lossy().to_string());
+
+    Json(PlatformInfo {
+        os: std::env::consts::OS,
+        samples_dir: state.samples_dir.to_string_lossy().to_string(),
+        detected_save_dir,
+        detected_mods_dir,
+    })
+}
+
 /// Creates the axum router for the application.
 pub fn create_app(state: AppState) -> Router {
     Router::new()
@@ -1272,6 +1243,7 @@ pub fn create_app(state: AppState) -> Router {
         .route("/api/map.png", get(landmass_handler))
         .route("/api/fog.png", get(fog_handler))
         .route("/api/heightmap.bin", get(heightmap_handler))
+        .route("/api/platform", get(platform_info_handler))
         .route("/api/status", get(status_handler))
         .route("/api/world", get(world_handler))
         .route("/api/saves", get(list_saves_handler))

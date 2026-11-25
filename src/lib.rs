@@ -5,6 +5,7 @@ pub mod map_gen;
 pub mod mod_scanner;
 pub mod models;
 pub mod parser;
+pub mod platform;
 pub mod save_writer;
 pub mod server;
 pub mod vanilla_nodes_data;

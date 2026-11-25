@@ -1440,7 +1440,7 @@
       <!-- Scan Mod Folder Bar -->
       <div style="display: flex; align-items: center; gap: 8px; padding: 8px 18px; background: rgba(15, 23, 42, 0.72); border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap;">
         <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Mods Folder:</span>
-        <input type="text" id="mods-dir-input" placeholder="Leave blank to auto-detect, or enter e.g. C:\...\Satisfactory\FactoryGame\Mods" style="flex: 1 1 260px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 5px; padding: 5px 8px; font-size: 11px;" />
+        <input type="text" id="mods-dir-input" placeholder="Leave blank to auto-detect Satisfactory/FactoryGame/Mods, or enter full path" style="flex: 1 1 260px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 5px; padding: 5px 8px; font-size: 11px;" />
         <button onclick="scanModFolder()" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #6ee7b7; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 11px; font-weight: 600;">Scan Mod Folder</button>
         <span id="mods-scan-status" style="font-size: 11px; color: #94a3b8;"></span>
       </div>
@@ -2577,7 +2577,7 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(downloadUrl);
+        setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 60000);
 
         if (hasPending) {
           resetPendingChanges();
@@ -4127,7 +4127,7 @@
             document.body.appendChild(a);
             a.click();
             a.remove();
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
           }
           showNotification(`Downloaded ${data.filename}.sbp & .sbpcfg (${data.exported_count} buildings)`);
         }

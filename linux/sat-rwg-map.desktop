@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Satisfactory RWG Interactive Map
+GenericName=Satisfactory Map & Save Editor
+Comment=Interactive 2D/3D map, save parser, and blueprint studio for Satisfactory and RandomWorldGenerator
+Exec=sat-rwg-map
+Terminal=false
+Categories=Game;Utility;
+Keywords=Satisfactory;RWG;Map;Save;Blueprint;
+StartupNotify=true

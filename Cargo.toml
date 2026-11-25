@@ -1,9 +1,13 @@
 [package]
 name = "sat-rwg-map"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 authors = ["Dragon Forge Creations"]
 description = "Satisfactory RWG Interactive Map & Save Server"
+
+[features]
+default = ["desktop"]
+desktop = ["dep:wry", "dep:tao"]
 
 [dependencies]
 byteorder = "1.5"
@@ -18,7 +22,7 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
-wry = "0.57"
-tao = "0.37"
+wry = { version = "0.57", optional = true }
+tao = { version = "0.37", optional = true }
 
 [dev-dependencies]

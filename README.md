@@ -30,9 +30,73 @@ You do **not** need to compile anything from source! A pre-built standalone Wind
 
 ## 🛠️ Building from Source (Optional)
 
-If you want to build from source using Rust:
+### Windows
 
 ```powershell
 cargo build --release
 .\target\release\sat-rwg-map.exe
+```
+
+---
+
+## 🐧 Linux Support
+
+`sat-rwg-map` supports Linux natively on both Wayland and X11 using GTK3 + WebKitGTK, and also offers a lightweight headless/browser mode without GUI libraries.
+
+Pre-built Linux `x86_64` archives are published on GitHub Releases:
+- `SF-Random-Interactive-Map-linux-x86_64.tar.gz` — Native desktop window (extract and run `./sat-rwg-map`, or `./linux/install.sh` to install into `~/.local/bin` and register the `.desktop` entry).
+- `SF-Random-Interactive-Map-linux-x86_64-headless.tar.gz` — Pure-Rust headless server / browser / CLI binary with zero GTK or WebKitGTK dependencies.
+
+### 1. System Dependencies (for Native Desktop Window)
+
+- **Arch / CachyOS**:
+  ```bash
+  sudo pacman -S gtk3 webkit2gtk-4.1
+  ```
+- **Debian / Ubuntu**:
+  ```bash
+  sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev
+  ```
+- **Fedora**:
+  ```bash
+  sudo dnf install gtk3-devel webkit2gtk4.1-devel
+  ```
+
+### 2. Build & Run on Linux
+
+- **Native desktop window (Wayland & X11)**:
+  ```bash
+  cargo build --release
+  ./target/release/sat-rwg-map
+  ```
+- **Headless server-only build (no GTK/WebKitGTK required)**:
+  ```bash
+  cargo build --release --no-default-features
+  ./target/release/sat-rwg-map --server
+  ```
+
+### 3. CLI Modes
+
+- `./target/release/sat-rwg-map` — Launches the native desktop window (auto-applies `WEBKIT_DISABLE_DMABUF_RENDERER=1` on NVIDIA systems unless explicitly set).
+- `./target/release/sat-rwg-map --server [--port 8080]` — Runs headless HTTP server only.
+- `./target/release/sat-rwg-map --browser [--port 8080]` — Starts the local server and opens it in your default browser via `xdg-open`.
+- `./target/release/sat-rwg-map --cli [path/to/save.sav]` — Parses a save file and writes `rwg_actors.json`.
+
+### 4. Automatic Steam / Proton / Heroic / Wine Detection
+
+Save-to-game, Blueprint export, and Mod folder scanning automatically inspect:
+- Steam libraries (`libraryfolders.vdf`) and Proton prefix `526870` (`compatdata/526870/pfx/...`)
+- Heroic Games Launcher prefixes (`~/Games/Heroic/Prefixes/...`) & game installs
+- `$WINEPREFIX` / `~/.wine` and `~/.config/Epic/FactoryGame/Saved/SaveGames`
+
+You can also override discovery manually via environment variables:
+- `SATISFACTORY_SAVE_DIR=/path/to/SaveGames/or/profile`
+- `SATISFACTORY_MODS_DIR=/path/to/Satisfactory/FactoryGame/Mods`
+
+### 5. Desktop Launcher Installation
+
+To install the binary into `~/.local/bin` and register a desktop application entry:
+
+```bash
+./linux/install.sh
 ```

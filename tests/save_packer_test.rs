@@ -13,6 +13,8 @@ fn test_recompress_and_teleport_player() {
         "samples/RP Test_autosave_1.sav",
         "samples/Map Test_191026-233059.sav",
         "Referenc_specs/RP Test_autosave_1.sav",
+        "samples/Random 0.2.0_121126-231201.sav",
+        "samples/Dragon PEP_011126-011733.sav",
     ];
     let save_path = sample_candidates
         .iter()
@@ -442,6 +444,8 @@ fn test_duplicate_delete_and_blueprint_export_roundtrip() {
         "release/samples/Random 2.0 SF+ Dev_261026-194354.sav",
         "Referenc_specs/RP Test_autosave_1.sav",
         "release/samples/Random 0.2.0_121126-231201.sav",
+        "samples/Random 0.2.0_121126-231201.sav",
+        "samples/Dragon PEP_011126-011733.sav",
     ];
     let (raw_bytes, initial) = sample_candidates
         .iter()
@@ -460,17 +464,21 @@ fn test_duplicate_delete_and_blueprint_export_roundtrip() {
 
     let mut targets: Vec<String> = Vec::new();
     let initial_count = initial.player_structures.len();
+    let mut non_lw_count = 0usize;
+    let mut lw_count = 0usize;
 
     for s in &initial.player_structures {
-        if !s.is_lightweight
-            && targets.iter().filter(|t| !t.contains("::lw::")).count() < 2
-            && !s.type_path.contains("Subsystem")
+        if !s.is_lightweight && non_lw_count < 2 && !s.type_path.contains("Subsystem") {
+            targets.push(s.instance_name.clone());
+            non_lw_count += 1;
+        } else if s.is_lightweight
+            && s.instance_name.starts_with("Lightweight::")
+            && lw_count < 2
         {
             targets.push(s.instance_name.clone());
-        } else if s.is_lightweight && targets.iter().filter(|t| t.contains("::lw::")).count() < 2 {
-            targets.push(s.instance_name.clone());
+            lw_count += 1;
         }
-        if targets.len() >= 4 {
+        if non_lw_count >= 2 && lw_count >= 2 {
             break;
         }
     }
